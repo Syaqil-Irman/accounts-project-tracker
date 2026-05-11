@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance Team — Work Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pulse { animation: pulse 2s infinite; }
+  select, input { font-family: inherit; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; padding: 8px 10px; color: #718096; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 10px; border-bottom: 1px solid #f7fafc; vertical-align: middle; }
+  tr:hover td { background: #f7fafc; }
+  tr:last-child td { border-bottom: none; }
+  .card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 18px; }
+  .card-header { padding: 14px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .card-header h2 { font-size: 0.9rem; font-weight: 700; color: #2d3748; }
+  .card-body { padding: 16px 20px; }
+  .inp { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.81rem; color: #2d3748; outline: none; width: 100%; background: white; font-family: inherit; }
+  .inp:focus { border-color: #2b6cb0; box-shadow: 0 0 0 3px rgba(43,108,176,0.1); }
+  .sel { padding: 5px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.78rem; color: #2d3748; background: white; outline: none; font-family: inherit; }
+  .btn-add { padding: 8px 14px; border-radius: 8px; border: none; background: #2b6cb0; color: white; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .btn-add:hover { background: #2c5282; }
+  .btn-add:disabled { background: #90cdf4; cursor: not-allowed; }
+  .btn-del { padding: 3px 8px; border-radius: 6px; border: 1px solid #fed7d7; background: #fff5f5; color: #c53030; font-size: 0.7rem; cursor: pointer; font-weight: 600; }
+  .btn-del:hover { background: #fed7d7; }
+  .btn-refresh { background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer; }
+  .status-sel { border: 1px solid #e2e8f0; background: #f7fafc; border-radius: 6px; font-size: 0.76rem; cursor: pointer; color: #2d3748; padding: 3px 6px; font-family: inherit; }
+  .error-bar { background: #fff5f5; border-bottom: 2px solid #fed7d7; padding: 10px 28px; font-size: 0.82rem; color: #c53030; display: flex; justify-content: space-between; align-items: center; }
+  .empty { text-align: center; padding: 40px 20px; color: #a0aec0; }
+  .empty .icon { font-size: 2rem; margin-bottom: 8px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; padding: 20px 28px 0; }
+  .kpi { background: white; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .kpi .label { font-size: 0.7rem; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .kpi .value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+  .kpi .sub { font-size: 0.72rem; color: #a0aec0; margin-top: 4px; }
+  .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; padding: 18px 28px 32px; }
+  .add-row { display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr auto; gap: 8px; margin-top: 18px; align-items: center; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 960px) {
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .add-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const SUPABASE_URL = "https://skiovsgqmwlcpyroltlm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNraW92c2dxbXdsY3B5cm9sdGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTQzMjIsImV4cCI6MjA5NDA3MDMyMn0.85rqMwSyXtvCKVThU4ed1WxG6QkCpeEtQX0Fd632WHg";
+
+const TEAM = {
+  Syaqil:    { initials:"SQ", color:"#2b6cb0", pillBg:"#ebf8ff", pillText:"#2b6cb0" },
+  Ulfah:     { initials:"UL", color:"#6b46c1", pillBg:"#faf5ff", pillText:"#6b46c1" },
+  Batrisyia: { initials:"BA", color:"#c05621", pillBg:"#fff8f1", pillText:"#c05621" },
+};
+const STATUS_COLORS = { "To Do":"#4299e1","In Progress":"#d69e2e","Done":"#38a169","Blocked":"#e53e3e" };
+const CAT_COLORS = { AR:"#2b6cb0",AP:"#6b46c1",Payroll:"#c05621",Reporting:"#38a169",Reconciliation:"#d69e2e",Other:"#718096" };
+const STATUSES = ["To Do","In Progress","Done","Blocked"];
+const CATEGORIES = ["AR","AP","Payroll","Reporting","Reconciliation","Other"];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let state = {
+  tasks: [], loading: true, saving: false, error: null, lastSync: null,
+  filterOwner:"", filterStatus:"", filterCat:"",
+  form: { name:"", owner:"", category:"", due:"", priority:"medium" }
+};
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(path, method="GET", body=null) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    method,
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation",
+    },
+    body: body ? JSON.stringify(body) : null,
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(e); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmtDate = d => { if(!d) return ""; const [y,m,dd]=d.split("-"); return `${dd}/${m}/${y}`; };
+const todayStr = () => new Date().toISOString().split("T")[0];
+const daysUntil = d => Math.round((new Date(d)-new Date(todayStr()))/86400000);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchTasks(silent=false) {
+  try {
+    if (!silent) { state.loading=true; render(); }
+    state.tasks = await api("/tasks?order=created_at.asc");
+    state.lastSync = new Date();
+    state.error = null;
+  } catch(e) { state.error = "Could not load tasks: "+e.message; }
+  finally { state.loading=false; render(); }
+}
+
+async function updateStatus(id, status) {
+  const progress = status==="Done"?100:status==="To Do"?0:(state.tasks.find(t=>t.id===id)||{}).progress||0;
+  state.tasks = state.tasks.map(t=>t.id===id?{...t,status,progress}:t); render();
+  try { await api(`/tasks?id=eq.${id}`,"PATCH",{status,progress}); state.lastSync=new Date(); render(); }
+  catch(e) { state.error="Save failed: "+e.message; fetchTasks(true); }
+}
+
+async function updateProgress(id, progress) {
+  progress = Math.min(100,Math.max(0,Number(progress)||0));
+  state.tasks = state.tasks.map(t=>t.id===id?{...t,progress}:t); render();
+  try { await api(`/tasks?id=eq.${id}`,"PATCH",{progress}); state.lastSync=new Date(); render(); }
+  catch(e) { state.error="Save failed: "+e.message; }
+}
+
+async function deleteTask(id) {
+  state.tasks = state.tasks.filter(t=>t.id!==id); render();
+  try { await api(`/tasks?id=eq.${id}`,"DELETE"); state.lastSync=new Date(); render(); }
+  catch(e) { state.error="Delete failed: "+e.message; fetchTasks(true); }
+}
+
+async function addTask() {
+  const f = state.form;
+  if (!f.name.trim()||!f.owner||!f.due) { alert("Please fill in task name, owner, and due date."); return; }
+  state.saving=true; render();
+  try {
+    const created = await api("/tasks","POST",{
+      name:f.name.trim(), owner:f.owner, category:f.category||"Other",
+      due:f.due, priority:f.priority, status:"To Do", progress:0
+    });
+    state.tasks = [...state.tasks,...(Array.isArray(created)?created:[created])];
+    state.form = {name:"",owner:"",category:"",due:"",priority:"medium"};
+    state.lastSync = new Date();
+  } catch(e) { state.error="Could not add task: "+e.message; }
+  finally { state.saving=false; render(); }
+}
+
+// ── Donut ─────────────────────────────────────────────────────────────────────
+function drawDonut() {
+  const canvas = document.getElementById("donut"); if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const counts = STATUSES.map(s=>state.tasks.filter(t=>t.status===s).length);
+  const total = counts.reduce((a,b)=>a+b,0)||1;
+  ctx.clearRect(0,0,160,160);
+  let angle=-Math.PI/2;
+  counts.forEach((v,i)=>{
+    const slice=(v/total)*2*Math.PI;
+    ctx.beginPath();ctx.moveTo(80,80);ctx.arc(80,80,60,angle,angle+slice);ctx.closePath();
+    ctx.fillStyle=Object.values(STATUS_COLORS)[i];ctx.fill();angle+=slice;
+  });
+  ctx.beginPath();ctx.arc(80,80,36,0,2*Math.PI);ctx.fillStyle="white";ctx.fill();
+  const pct=Math.round(counts[2]/total*100);
+  ctx.fillStyle="#1a365d";ctx.font="bold 18px Segoe UI";ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillText(pct+"%",80,72);
+  ctx.font="10px Segoe UI";ctx.fillStyle="#718096";ctx.fillText("complete",80,90);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const s = state;
+  const today = new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  const tasks = s.tasks;
+  const filtered = tasks.filter(t=>
+    (!s.filterOwner||t.owner===s.filterOwner)&&
+    (!s.filterStatus||t.status===s.filterStatus)&&
+    (!s.filterCat||t.category===s.filterCat)
+  );
+  const total=tasks.length, done=tasks.filter(t=>t.status==="Done").length,
+        blocked=tasks.filter(t=>t.status==="Blocked").length,
+        overdue=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length,
+        pct=total?Math.round(done/total*100):0;
+  const upcoming=tasks.filter(t=>t.status!=="Done").sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,7);
+
+  if (s.loading) {
+    document.getElementById("app").innerHTML=`
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f4f8;gap:16px;">
+        <div style="font-size:2rem">📊</div>
+        <div style="font-size:1rem;font-weight:700;color:#2b6cb0">Loading Finance Tracker…</div>
+        <div style="font-size:0.82rem;color:#718096">Connecting to Supabase</div>
+      </div>`;
+    return;
+  }
+
+  const syncStr = s.lastSync ? s.lastSync.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "…";
+
+  // Build owner options
+  const ownerOpts = Object.keys(TEAM).map(o=>`<option ${s.filterOwner===o?"selected":""}>${esc(o)}</option>`).join("");
+  const statusOpts = STATUSES.map(st=>`<option ${s.filterStatus===st?"selected":""}>${esc(st)}</option>`).join("");
+  const catOpts = CATEGORIES.map(c=>`<option ${s.filterCat===c?"selected":""}>${esc(c)}</option>`).join("");
+
+  // Task rows
+  const taskRows = filtered.length===0
+    ? `<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:24px;">No tasks match this filter.</td></tr>`
+    : filtered.map(t=>{
+        const m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
+        const d=daysUntil(t.due);
+        const dueColor=t.status!=="Done"&&d<0?"#c53030":t.status!=="Done"&&d<=2?"#744210":"#4a5568";
+        const barColor=t.status==="Done"?"#38a169":t.status==="Blocked"?"#e53e3e":"#2b6cb0";
+        const cc=CAT_COLORS[t.category]||"#718096";
+        const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
+        const statusOptions=STATUSES.map(st=>`<option ${t.status===st?"selected":""}>${esc(st)}</option>`).join("");
+        return `<tr>
+          <td><div style="width:8px;height:8px;border-radius:50%;background:${priColor};display:inline-block;" title="${esc(t.priority)}"></div></td>
+          <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</td>
+          <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
+          <td>
+            <div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;">
+              <div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div>
+              <span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span>
+            </div>
+          </td>
+          <td style="font-size:0.76rem;color:${dueColor};white-space:nowrap;">${fmtDate(t.due)}</td>
+          <td><select class="status-sel" onchange="updateStatus('${t.id}',this.value)">${statusOptions}</select></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="background:#e2e8f0;border-radius:4px;height:6px;width:60px;flex-shrink:0;">
+                <div style="width:${t.progress}%;height:100%;border-radius:4px;background:${barColor};transition:width .3s;"></div>
+              </div>
+              <input type="number" min="0" max="100" value="${t.progress}"
+                onchange="updateProgress('${t.id}',this.value)"
+                style="width:38px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.7rem;padding:1px 4px;color:#718096;text-align:center;font-family:inherit;" />
+            </div>
+          </td>
+          <td><button class="btn-del" onclick="deleteTask('${t.id}')">✕</button></td>
+        </tr>`;
+      }).join("");
+
+  // Donut legend
+  const donutLegend = STATUSES.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.79rem;color:#4a5568;">
+      <div style="width:10px;height:10px;border-radius:50%;background:${Object.values(STATUS_COLORS)[i]};flex-shrink:0;"></div>
+      ${esc(s)}<strong style="margin-left:auto;">${tasks.filter(t=>t.status===s).length}</strong>
+    </div>`).join("");
+
+  // Workload
+  const maxT = Math.max(...Object.keys(TEAM).map(n=>tasks.filter(t=>t.owner===n).length),1);
+  const workload = Object.entries(TEAM).map(([name,m])=>{
+    const open=tasks.filter(t=>t.owner===name&&t.status!=="Done").length;
+    const tot=tasks.filter(t=>t.owner===name).length;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <div style="width:78px;color:#4a5568;font-weight:600;font-size:0.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(name)}</div>
+        <div style="flex:1;background:#e2e8f0;border-radius:4px;height:8px;">
+          <div style="width:${tot/maxT*100}%;height:100%;border-radius:4px;background:${m.color};transition:width .4s;"></div>
+        </div>
+        <div style="width:20px;text-align:right;color:#718096;font-size:0.73rem;">${tot}</div>
+      </div>
+      <div style="font-size:0.68rem;color:#a0aec0;margin-bottom:10px;margin-left:88px;">${open} open · ${tot-open} done</div>`;
+  }).join("");
+
+  // Upcoming
+  const upcomingHTML = upcoming.length===0
+    ? `<p style="color:#a0aec0;font-size:0.83rem;">All caught up! 🎉</p>`
+    : upcoming.map(t=>{
+        const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
+        const d=daysUntil(t.due);
+        const cls=d<0?{bg:"#fff5f5",col:"#c53030"}:d<=3?{bg:"#fefcbf",col:"#744210"}:{bg:"#f0fff4",col:"#276749"};
+        const label=d<0?`${-d}d overdue`:d===0?"Today":d===1?"Tomorrow":`${d}d left`;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:0.8rem;">
+          <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+          <span style="flex:1;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
+          <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;background:${cls.bg};color:${cls.col};white-space:nowrap;">${label}</span>
+        </div>`;
+      }).join("");
+
+  // Add form selects
+  const addOwnerOpts = `<option value="">Owner…</option>`+Object.keys(TEAM).map(o=>`<option ${s.form.owner===o?"selected":""}>${esc(o)}</option>`).join("");
+  const addCatOpts = `<option value="">Category…</option>`+CATEGORIES.map(c=>`<option ${s.form.category===c?"selected":""}>${esc(c)}</option>`).join("");
+
+  document.getElementById("app").innerHTML = `
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%);color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:1.25rem;font-weight:700;">📊 Finance Team — Work Tracker</span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+        <span style="font-size:0.78rem;opacity:0.8;">${today}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="pulse" style="width:7px;height:7px;border-radius:50%;background:#68d391;"></div>
+          <span style="font-size:0.7rem;opacity:0.75;">Live · synced ${syncStr}</span>
+          <button class="btn-refresh" onclick="fetchTasks(true)">↻ Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team strip -->
+    <div style="background:#1e4a8a;padding:10px 28px;display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border-radius:20px;padding:5px 14px;font-size:0.77rem;color:white;">
+        <div style="width:22px;height:22px;border-radius:50%;background:#2b6cb0;display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:white;">SQ</div>
+        Syaqil <span style="font-size:0.67rem;opacity:0.7;">· Accounts Executive</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border-radius:20px;padding:5px 14px;font-size:0.77rem;color:white;">
+        <div style="width:22px;height:22px;border-radius:50%;background:#6b46c1;display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:white;">UL</div>
+        Ulfah <span style="font-size:0.67rem;opacity:0.7;">· Accounts Assistant</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border-radius:20px;padding:5px 14px;font-size:0.77rem;color:white;">
+        <div style="width:22px;height:22px;border-radius:50%;background:#c05621;display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:white;">BA</div>
+        Batrisyia <span style="font-size:0.67rem;opacity:0.7;">· Accounts Assistant</span>
+        <span style="font-size:0.66rem;background:rgba(255,255,255,0.15);border-radius:8px;padding:1px 7px;">🇲🇾 JB · AR (SG) · AP (JB)</span>
+      </div>
+    </div>
+
+    <!-- Error -->
+    ${s.error ? `<div class="error-bar">⚠️ ${esc(s.error)}<button onclick="state.error=null;render();" style="background:none;border:none;color:#c53030;cursor:pointer;font-weight:700;">✕</button></div>` : ""}
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi" style="border-left:4px solid #2b6cb0;"><div class="label">Total Tasks</div><div class="value" style="color:#1a365d;">${total}</div><div class="sub">across 3 members</div></div>
+      <div class="kpi" style="border-left:4px solid #38a169;"><div class="label">Completed</div><div class="value" style="color:#276749;">${pct}%</div><div class="sub">${done} of ${total} tasks</div></div>
+      <div class="kpi" style="border-left:4px solid #d69e2e;"><div class="label">Blocked</div><div class="value" style="color:#744210;">${blocked}</div><div class="sub">need attention</div></div>
+      <div class="kpi" style="border-left:4px solid #e53e3e;"><div class="label">Overdue</div><div class="value" style="color:#822727;">${overdue}</div><div class="sub">past due date</div></div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="main-grid">
+
+      <!-- Task table -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Tasks &amp; Deliverables</h2>
+          <div class="filters">
+            <select class="sel" onchange="state.filterOwner=this.value;render();">
+              <option value="">All owners</option>${ownerOpts}
+            </select>
+            <select class="sel" onchange="state.filterStatus=this.value;render();">
+              <option value="">All statuses</option>${statusOpts}
+            </select>
+            <select class="sel" onchange="state.filterCat=this.value;render();">
+              <option value="">All categories</option>${catOpts}
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          ${tasks.length===0
+            ? `<div class="empty"><div class="icon">📋</div><div style="font-weight:600;margin-bottom:4px;">No tasks yet</div><div style="font-size:0.82rem;">Add your first task below</div></div>`
+            : `<table><thead><tr>
+                <th>Pri</th><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th>
+               </tr></thead><tbody>${taskRows}</tbody></table>`
+          }
+
+          <!-- Add task -->
+          <div class="add-row">
+            <input class="inp" type="text" placeholder="Task name…" value="${esc(s.form.name)}"
+              oninput="state.form.name=this.value"
+              onkeydown="if(event.key==='Enter')addTask();" />
+            <select class="inp" onchange="state.form.owner=this.value;">${addOwnerOpts}</select>
+            <select class="inp" onchange="state.form.category=this.value;">${addCatOpts}</select>
+            <input class="inp" type="date" value="${esc(s.form.due)}" onchange="state.form.due=this.value;" />
+            <select class="inp" onchange="state.form.priority=this.value;">
+              <option value="high" ${s.form.priority==="high"?"selected":""}>🔴 High</option>
+              <option value="medium" ${s.form.priority==="medium"?"selected":""}>🟡 Medium</option>
+              <option value="low" ${s.form.priority==="low"?"selected":""}>🟢 Low</option>
+            </select>
+            <button class="btn-add" onclick="addTask();" ${s.saving?"disabled":""}>
+              ${s.saving?"Saving…":"+ Add"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div>
+        <div class="card">
+          <div class="card-header"><h2>Status Breakdown</h2></div>
+          <div class="card-body">
+            <div style="display:flex;justify-content:center;padding:8px 0 4px;"><canvas id="donut" width="160" height="160"></canvas></div>
+            <div style="margin-top:10px;">${donutLegend}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Workload by Owner</h2></div>
+          <div class="card-body">${workload}</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2>Upcoming / Overdue</h2></div>
+          <div class="card-body">${upcomingHTML}</div>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  // Draw donut after render
+  setTimeout(drawDonut, 0);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+render(); // show loading
+fetchTasks();
+setInterval(() => fetchTasks(true), 10000); // poll every 10s
+</script>
+</body>
+</html>
