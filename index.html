@@ -333,6 +333,7 @@ function render() {
             <select class="sel" onchange="state.filterCat=this.value;render();">
               <option value="">All categories</option>${catOpts}
             </select>
+            <button class="sel" onclick="state.filterOwner='';state.filterStatus='';state.filterCat='';render();" style="cursor:pointer;color:#c53030;border-color:#fed7d7;background:#fff5f5;font-weight:600;">✕ Reset</button>
           </div>
         </div>
         <div class="card-body">
