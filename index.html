@@ -45,6 +45,20 @@
     .main-grid { grid-template-columns: 1fr; }
     .add-row { grid-template-columns: 1fr 1fr; }
   }
+  /* Login */
+  .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%); }
+  .login-box { background:white; border-radius:16px; padding:40px 36px; width:100%; max-width:380px; box-shadow:0 8px 32px rgba(0,0,0,0.18); }
+  .login-logo { text-align:center; font-size:2.2rem; margin-bottom:8px; }
+  .login-title { text-align:center; font-size:1.15rem; font-weight:800; color:#1a365d; margin-bottom:4px; }
+  .login-sub { text-align:center; font-size:0.8rem; color:#a0aec0; margin-bottom:28px; }
+  .login-label { font-size:0.78rem; font-weight:600; color:#4a5568; margin-bottom:5px; display:block; }
+  .login-inp { width:100%; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:9px; font-size:0.9rem; outline:none; margin-bottom:16px; font-family:inherit; color:#2d3748; transition:border .2s; }
+  .login-inp:focus { border-color:#2b6cb0; box-shadow:0 0 0 3px rgba(43,108,176,0.1); }
+  .login-btn { width:100%; padding:11px; border-radius:9px; border:none; background:linear-gradient(135deg,#1a365d,#2b6cb0); color:white; font-size:0.95rem; font-weight:700; cursor:pointer; margin-top:4px; font-family:inherit; transition:opacity .2s; }
+  .login-btn:hover { opacity:0.9; }
+  .login-err { background:#fff5f5; border:1px solid #fed7d7; color:#c53030; border-radius:8px; padding:9px 14px; font-size:0.82rem; margin-bottom:14px; text-align:center; }
+  .logout-btn { background:rgba(255,255,255,0.15); border:none; color:white; border-radius:6px; padding:3px 10px; font-size:0.72rem; cursor:pointer; margin-left:8px; }
+  .logout-btn:hover { background:rgba(255,255,255,0.25); }
 </style>
 </head>
 <body>
@@ -54,6 +68,12 @@
 <script>
 const SUPABASE_URL = "https://skiovsgqmwlcpyroltlm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNraW92c2dxbXdsY3B5cm9sdGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTQzMjIsImV4cCI6MjA5NDA3MDMyMn0.85rqMwSyXtvCKVThU4ed1WxG6QkCpeEtQX0Fd632WHg";
+
+const USERS = {
+  Syaqil:    { password:"Syaqil@2026",    role:"Accounts Executive",  admin:true  },
+  Ulfah:     { password:"Ulfah@2026",     role:"Accounts Assistant",  admin:true  },
+  Batrisyia: { password:"Batrisyia@2026", role:"Accounts Assistant",  admin:false },
+};
 
 const TEAM = {
   Syaqil:    { initials:"SQ", color:"#2b6cb0", pillBg:"#ebf8ff", pillText:"#2b6cb0" },
@@ -70,7 +90,9 @@ let state = {
   tasks: [], loading: true, saving: false, error: null, lastSync: null,
   filterOwner:"", filterStatus:"", filterCat:"",
   form: { name:"", owner:"", category:"", due:"", priority:"medium" },
-  deleteLog: [], showDeleteLog: false
+  deleteLog: [], showDeleteLog: false,
+  currentUser: sessionStorage.getItem("currentUser") || null,
+  loginUser:"", loginPass:"", loginError:""
 };
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -96,11 +118,39 @@ const todayStr = () => new Date().toISOString().split("T")[0];
 const daysUntil = d => Math.round((new Date(d)-new Date(todayStr()))/86400000);
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function login() {
+  const u = state.loginUser.trim();
+  const p = state.loginPass;
+  if (!USERS[u] || USERS[u].password !== p) {
+    state.loginError = "Incorrect username or password. Please try again.";
+    render(); return;
+  }
+  state.currentUser = u;
+  state.loginError = "";
+  state.loginUser = "";
+  state.loginPass = "";
+  sessionStorage.setItem("currentUser", u);
+  render();
+  fetchTasks();
+  fetchDeleteLog();
+}
+
+function logout() {
+  state.currentUser = null;
+  sessionStorage.removeItem("currentUser");
+  state.tasks = [];
+  state.deleteLog = [];
+  render();
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 async function fetchTasks(silent=false) {
   try {
     if (!silent) { state.loading=true; render(); }
-    state.tasks = await api("/tasks?order=created_at.asc");
+    const user = state.currentUser;
+    const isAdmin = USERS[user]?.admin;
+    state.tasks = await api(isAdmin ? "/tasks?order=created_at.asc" : `/tasks?owner=eq.${encodeURIComponent(user)}&order=created_at.asc`);
     state.lastSync = new Date();
     state.error = null;
   } catch(e) { state.error = "Could not load tasks: "+e.message; }
@@ -109,7 +159,9 @@ async function fetchTasks(silent=false) {
 
 async function fetchDeleteLog() {
   try {
-    const logs = await api("/delete_log?order=deleted_at.desc");
+    const user = state.currentUser;
+    const isAdmin = USERS[user]?.admin;
+    const logs = await api(isAdmin ? "/delete_log?order=deleted_at.desc" : `/delete_log?owner=eq.${encodeURIComponent(user)}&order=deleted_at.desc`);
     state.deleteLog = logs.map(l => ({
       ...l,
       name: l.task_name,
@@ -160,11 +212,11 @@ async function deleteTask(id) {
 
 async function addTask() {
   const f = state.form;
-  if (!f.name.trim()||!f.owner||!f.due) { alert("Please fill in task name, owner, and due date."); return; }
+  if (!f.name.trim()||!f.due) { alert("Please fill in task name and due date."); return; }
   state.saving=true; render();
   try {
     const created = await api("/tasks","POST",{
-      name:f.name.trim(), owner:f.owner, category:f.category||"Other",
+      name:f.name.trim(), owner:state.currentUser, category:f.category||"Other",
       due:f.due, priority:f.priority, status:"To Do", progress:0
     });
     state.tasks = [...state.tasks,...(Array.isArray(created)?created:[created])];
@@ -197,6 +249,30 @@ function drawDonut() {
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   const s = state;
+
+  // ── Login screen ────────────────────────────────────────────────────────────
+  if (!s.currentUser) {
+    document.getElementById("app").innerHTML = `
+      <div class="login-wrap">
+        <div class="login-box">
+          <div class="login-logo">📊</div>
+          <div class="login-title">Accounts Team</div>
+          <div class="login-sub">Task Tracker — Please sign in</div>
+          ${s.loginError ? `<div class="login-err">${esc(s.loginError)}</div>` : ""}
+          <label class="login-label">Username</label>
+          <input class="login-inp" type="text" placeholder="e.g. Syaqil" value="${esc(s.loginUser)}"
+            oninput="state.loginUser=this.value"
+            onkeydown="if(event.key==='Enter')login();" />
+          <label class="login-label">Password</label>
+          <input class="login-inp" type="password" placeholder="Enter your password" value="${esc(s.loginPass)}"
+            oninput="state.loginPass=this.value"
+            onkeydown="if(event.key==='Enter')login();" />
+          <button class="login-btn" onclick="login()">Sign In →</button>
+        </div>
+      </div>`;
+    return;
+  }
+
   const today = new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
   const tasks = s.tasks;
   const filtered = tasks.filter(t=>
@@ -303,7 +379,6 @@ function render() {
       }).join("");
 
   // Add form selects
-  const addOwnerOpts = `<option value="">Owner…</option>`+Object.keys(TEAM).map(o=>`<option ${s.form.owner===o?"selected":""}>${esc(o)}</option>`).join("");
   const addCatOpts = `<option value="">Category…</option>`+CATEGORIES.map(c=>`<option ${s.form.category===c?"selected":""}>${esc(c)}</option>`).join("");
 
   document.getElementById("app").innerHTML = `
@@ -311,8 +386,17 @@ function render() {
     <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%);color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <span style="font-size:1.25rem;font-weight:700;">📊 Accounts Team - Task Tracker</span>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
-        <span style="font-size:0.78rem;opacity:0.8;">${today}</span>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:0.78rem;opacity:0.8;">${today}</span>
+          <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);border-radius:20px;padding:4px 12px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${TEAM[s.currentUser]?.color||'#718096'};display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:white;">${TEAM[s.currentUser]?.initials||'??'}</div>
+            <span style="font-size:0.78rem;font-weight:600;">${esc(s.currentUser)}</span>
+            <span style="font-size:0.68rem;opacity:0.7;">· ${USERS[s.currentUser]?.role||''}</span>
+            ${USERS[s.currentUser]?.admin ? `<span style="font-size:0.65rem;background:#f6e05e;color:#744210;border-radius:6px;padding:1px 7px;font-weight:700;">Admin</span>` : ''}
+            <button class="logout-btn" onclick="logout()">Sign out</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
           <div class="pulse" style="width:7px;height:7px;border-radius:50%;background:#68d391;"></div>
           <span style="font-size:0.7rem;opacity:0.75;">Live · synced ${syncStr}</span>
           <button class="btn-refresh" onclick="fetchTasks(true)">↻ Refresh</button>
@@ -356,9 +440,10 @@ function render() {
         <div class="card-header">
           <h2>Tasks &amp; Deliverables</h2>
           <div class="filters">
+            ${USERS[s.currentUser]?.admin ? `
             <select class="sel" onchange="state.filterOwner=this.value;render();">
               <option value="">All owners</option>${ownerOpts}
-            </select>
+            </select>` : ''}
             <select class="sel" onchange="state.filterStatus=this.value;render();">
               <option value="">All statuses</option>${statusOpts}
             </select>
@@ -381,7 +466,10 @@ function render() {
             <input class="inp" type="text" placeholder="Task name…" value="${esc(s.form.name)}"
               oninput="state.form.name=this.value"
               onkeydown="if(event.key==='Enter')addTask();" />
-            <select class="inp" onchange="state.form.owner=this.value;">${addOwnerOpts}</select>
+            <div class="inp" style="background:#f7fafc;color:#4a5568;display:flex;align-items:center;gap:6px;cursor:default;">
+              <div style="width:16px;height:16px;border-radius:50%;background:${TEAM[s.currentUser]?.color||'#718096'};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${TEAM[s.currentUser]?.initials||'??'}</div>
+              ${esc(s.currentUser)}
+            </div>
             <select class="inp" onchange="state.form.category=this.value;">${addCatOpts}</select>
             <input class="inp" type="date" value="${esc(s.form.due)}" onchange="state.form.due=this.value;" />
             <select class="inp" onchange="state.form.priority=this.value;">
@@ -405,10 +493,11 @@ function render() {
             <div style="margin-top:10px;">${donutLegend}</div>
           </div>
         </div>
+        ${USERS[s.currentUser]?.admin ? `
         <div class="card">
           <div class="card-header"><h2>Workload by Owner</h2></div>
           <div class="card-body">${workload}</div>
-        </div>
+        </div>` : ''}
         <div class="card">
           <div class="card-header"><h2>Upcoming / Overdue</h2></div>
           <div class="card-body">${upcomingHTML}</div>
@@ -466,10 +555,12 @@ function render() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-render(); // show loading
-fetchTasks();
-fetchDeleteLog();
-setInterval(() => fetchTasks(true), 10000); // poll every 10s
+render(); // show loading or login
+if (state.currentUser) {
+  fetchTasks();
+  fetchDeleteLog();
+}
+setInterval(() => { if (state.currentUser) fetchTasks(true); }, 10000); // poll every 10s
 </script>
 </body>
 </html>
