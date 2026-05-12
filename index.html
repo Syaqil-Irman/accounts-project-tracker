@@ -120,8 +120,8 @@ const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function login() {
-  const u = state.loginUser.trim();
-  const p = state.loginPass;
+  const u = (document.getElementById("login-user")?.value || state.loginUser || "").trim();
+  const p = document.getElementById("login-pass")?.value || state.loginPass || "";
   if (!USERS[u] || USERS[u].password !== p) {
     state.loginError = "Incorrect username or password. Please try again.";
     render(); return;
@@ -211,16 +211,23 @@ async function deleteTask(id) {
 }
 
 async function addTask() {
-  const f = state.form;
-  if (!f.name.trim()||!f.due) { alert("Please fill in task name and due date."); return; }
+  const name = (document.getElementById("new-task-name")?.value||"").trim();
+  const category = document.getElementById("new-task-cat")?.value||"Other";
+  const due = document.getElementById("new-task-due")?.value||"";
+  const priority = document.getElementById("new-task-priority")?.value||"medium";
+  if (!name||!due) { alert("Please fill in task name and due date."); return; }
   state.saving=true; render();
   try {
     const created = await api("/tasks","POST",{
-      name:f.name.trim(), owner:state.currentUser, category:f.category||"Other",
-      due:f.due, priority:f.priority, status:"To Do", progress:0
+      name, owner:state.currentUser, category:category||"Other",
+      due, priority, status:"To Do", progress:0
     });
     state.tasks = [...state.tasks,...(Array.isArray(created)?created:[created])];
-    state.form = {name:"",owner:"",category:"",due:"",priority:"medium"};
+    // Clear inputs via DOM
+    const n=document.getElementById("new-task-name"); if(n) n.value="";
+    const d=document.getElementById("new-task-due"); if(d) d.value="";
+    const c=document.getElementById("new-task-cat"); if(c) c.value="";
+    const p=document.getElementById("new-task-priority"); if(p) p.value="medium";
     state.lastSync = new Date();
   } catch(e) { state.error="Could not add task: "+e.message; }
   finally { state.saving=false; render(); }
@@ -260,12 +267,10 @@ function render() {
           <div class="login-sub">Task Tracker — Please sign in</div>
           ${s.loginError ? `<div class="login-err">${esc(s.loginError)}</div>` : ""}
           <label class="login-label">Username</label>
-          <input class="login-inp" type="text" placeholder="e.g. Syaqil" value="${esc(s.loginUser)}"
-            oninput="state.loginUser=this.value"
+          <input class="login-inp" id="login-user" type="text" placeholder="e.g. Syaqil"
             onkeydown="if(event.key==='Enter')login();" />
           <label class="login-label">Password</label>
-          <input class="login-inp" type="password" placeholder="Enter your password" value="${esc(s.loginPass)}"
-            oninput="state.loginPass=this.value"
+          <input class="login-inp" id="login-pass" type="password" placeholder="Enter your password"
             onkeydown="if(event.key==='Enter')login();" />
           <button class="login-btn" onclick="login()">Sign In →</button>
         </div>
@@ -463,19 +468,18 @@ function render() {
 
           <!-- Add task -->
           <div class="add-row">
-            <input class="inp" type="text" placeholder="Task name…" value="${esc(s.form.name)}"
-              oninput="state.form.name=this.value"
+            <input class="inp" id="new-task-name" type="text" placeholder="Task name…"
               onkeydown="if(event.key==='Enter')addTask();" />
             <div class="inp" style="background:#f7fafc;color:#4a5568;display:flex;align-items:center;gap:6px;cursor:default;">
               <div style="width:16px;height:16px;border-radius:50%;background:${TEAM[s.currentUser]?.color||'#718096'};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${TEAM[s.currentUser]?.initials||'??'}</div>
               ${esc(s.currentUser)}
             </div>
-            <select class="inp" onchange="state.form.category=this.value;">${addCatOpts}</select>
-            <input class="inp" type="date" value="${esc(s.form.due)}" onchange="state.form.due=this.value;" />
-            <select class="inp" onchange="state.form.priority=this.value;">
-              <option value="high" ${s.form.priority==="high"?"selected":""}>🔴 High</option>
-              <option value="medium" ${s.form.priority==="medium"?"selected":""}>🟡 Medium</option>
-              <option value="low" ${s.form.priority==="low"?"selected":""}>🟢 Low</option>
+            <select class="inp" id="new-task-cat">${addCatOpts}</select>
+            <input class="inp" id="new-task-due" type="date" />
+            <select class="inp" id="new-task-priority">
+              <option value="high">🔴 High</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="low">🟢 Low</option>
             </select>
             <button class="btn-add" onclick="addTask();" ${s.saving?"disabled":""}>
               ${s.saving?"Saving…":"+ Add"}
