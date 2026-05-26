@@ -125,7 +125,7 @@ let deleteLog  = [];
 let lastSync   = null;
 let saving     = false;
 let showDeleteLog = false;
-let filterOwner = "", filterStatus = "", filterCat = "";
+let filterOwners = new Set(), filterStatuses = new Set(), filterCats = new Set();
 let currentUser = sessionStorage.getItem("currentUser") || null;
 
 const isAdmin = () => USERS[currentUser]?.admin || false;
@@ -185,6 +185,75 @@ function logout() {
 }
 
 // ── Static shell (header + team strip + add row) — built once per session ─────
+// Filter bar — checkbox dropdowns
+function buildCheckboxDropdown(id, label, options, selectedSet, colorFn) {
+  const count = selectedSet.size;
+  const btnLabel = count === 0 ? label : `${label} (${count})`;
+  const items = options.map(o => {
+    const checked = selectedSet.has(o) ? "checked" : "";
+    const dot = colorFn ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorFn(o)};margin-right:6px;flex-shrink:0;"></span>` : "";
+    return `<label style="display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;font-size:0.82rem;color:#2d3748;white-space:nowrap;border-radius:6px;" 
+      onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background=''"
+      onclick="event.stopPropagation();">
+      <input type="checkbox" ${checked} value="${esc(o)}" data-filter="${id}"
+        onchange="toggleFilter('${id}','${esc(o)}',this.checked)"
+        style="width:15px;height:15px;cursor:pointer;accent-color:#2b6cb0;" />
+      ${dot}${esc(o)}
+    </label>`;
+  }).join("");
+  return `
+    <div style="position:relative;display:inline-block;" id="wrap-${id}">
+      <button onclick="toggleDropdown('${id}')" 
+        style="padding:5px 12px;border:1px solid ${count>0?'#2b6cb0':'#e2e8f0'};border-radius:8px;font-size:0.78rem;color:${count>0?'#2b6cb0':'#2d3748'};background:${count>0?'#ebf8ff':'white'};cursor:pointer;font-family:inherit;font-weight:${count>0?'700':'400'};display:flex;align-items:center;gap:5px;">
+        ${btnLabel} <span style="font-size:0.65rem;opacity:0.6;">▼</span>
+      </button>
+      <div id="dd-${id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:999;min-width:160px;padding:6px 0;">
+        ${items}
+      </div>
+    </div>`;
+}
+
+function toggleDropdown(id) {
+  const dd = document.getElementById("dd-"+id);
+  const allDDs = document.querySelectorAll('[id^="dd-"]');
+  allDDs.forEach(d => { if(d.id !== "dd-"+id) d.style.display="none"; });
+  if (dd) dd.style.display = dd.style.display==="none" ? "block" : "none";
+}
+
+function toggleFilter(filterId, value, checked) {
+  if (filterId==="owner")  { checked ? filterOwners.add(value)   : filterOwners.delete(value); }
+  if (filterId==="status") { checked ? filterStatuses.add(value) : filterStatuses.delete(value); }
+  if (filterId==="cat")    { checked ? filterCats.add(value)     : filterCats.delete(value); }
+  renderTable(); renderSidePanels(); buildFilterBar();
+}
+
+function resetFilters() {
+  filterOwners.clear(); filterStatuses.clear(); filterCats.clear();
+  renderTable(); renderSidePanels(); buildFilterBar();
+}
+
+function buildFilterBar() {
+  const ownerFilter = isAdmin()
+    ? buildCheckboxDropdown("owner","Owner",Object.keys(TEAM),filterOwners,o=>TEAM[o]?.color)
+    : "";
+  const statusFilter = buildCheckboxDropdown("status","Status",STATUSES,filterStatuses,s=>STATUS_COLORS[s]);
+  const catFilter    = buildCheckboxDropdown("cat","Category",CATEGORIES,filterCats,c=>CAT_COLORS[c]);
+  const hasAny = filterOwners.size>0||filterStatuses.size>0||filterCats.size>0;
+  document.getElementById("filter-bar").innerHTML = `
+    ${ownerFilter}${statusFilter}${catFilter}
+    ${hasAny ? `<button onclick="resetFilters()" style="padding:5px 12px;border:1px solid #fed7d7;border-radius:8px;font-size:0.78rem;color:#c53030;background:#fff5f5;cursor:pointer;font-weight:700;font-family:inherit;">✕ Reset</button>` : ""}`;
+  // Close dropdowns when clicking outside
+  document.onclick = (e) => {
+    if (!e.target.closest('[id^="wrap-"]')) {
+      document.querySelectorAll('[id^="dd-"]').forEach(d=>d.style.display="none");
+    }
+  };
+}
+
+buildFilterBar();
+
+// Add task row
+
 function buildStaticShell() {
   const m = TEAM[currentUser]||{initials:"??",color:"#718096"};
   const u = USERS[currentUser]||{};
@@ -219,24 +288,7 @@ function buildStaticShell() {
         </div>`).join("")}
     </div>`;
 
-  // Filter bar
-  const ownerFilter = isAdmin() ? `
-    <select class="sel" id="f-owner" onchange="filterOwner=this.value;renderTable();renderSidePanels();">
-      <option value="">All owners</option>
-      ${Object.keys(TEAM).map(o=>`<option>${esc(o)}</option>`).join("")}
-    </select>` : "";
-  document.getElementById("filter-bar").innerHTML = `
-    ${ownerFilter}
-    <select class="sel" id="f-status" onchange="filterStatus=this.value;renderTable();renderSidePanels();">
-      <option value="">All statuses</option>
-      ${STATUSES.map(s=>`<option>${esc(s)}</option>`).join("")}
-    </select>
-    <select class="sel" id="f-cat" onchange="filterCat=this.value;renderTable();renderSidePanels();">
-      <option value="">All categories</option>
-      ${CATEGORIES.map(c=>`<option>${esc(c)}</option>`).join("")}
-    </select>
-    <button class="sel" onclick="filterOwner='';filterStatus='';filterCat='';document.getElementById('f-status').value='';document.getElementById('f-cat').value='';${isAdmin()?"document.getElementById('f-owner').value='';":""}renderTable();renderSidePanels();"
-      style="cursor:pointer;color:#c53030;border-color:#fed7d7;background:#fff5f5;font-weight:600;">✕ Reset</button>`;
+  buildFilterBar();
 
   // Add task row — built once, never re-rendered
   const ownerDisplay = `
@@ -310,9 +362,9 @@ function renderKPIs() {
 
 function renderTable() {
   const filtered = tasks.filter(t=>
-    (!filterOwner||t.owner===filterOwner)&&
-    (!filterStatus||t.status===filterStatus)&&
-    (!filterCat||t.category===filterCat)
+    (filterOwners.size===0||filterOwners.has(t.owner))&&
+    (filterStatuses.size===0||filterStatuses.has(t.status))&&
+    (filterCats.size===0||filterCats.has(t.category))
   );
   if (tasks.length===0) {
     document.getElementById("task-table-wrap").innerHTML = `<div class="empty"><div style="font-size:2rem;margin-bottom:8px;">📋</div><div style="font-weight:600;margin-bottom:4px;">No tasks yet</div><div style="font-size:0.82rem;">Add your first task below</div></div>`;
