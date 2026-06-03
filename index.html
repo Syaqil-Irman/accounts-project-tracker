@@ -9,7 +9,7 @@
   body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   .pulse { animation: pulse 2s infinite; }
-  select, input { font-family: inherit; }
+  select, input, textarea, button { font-family: inherit; }
   table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   th { text-align: left; padding: 8px 10px; color: #718096; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid #e2e8f0; }
   td { padding: 10px; border-bottom: 1px solid #f7fafc; vertical-align: middle; }
@@ -19,18 +19,16 @@
   .card-header { padding: 14px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
   .card-header h2 { font-size: 0.9rem; font-weight: 700; color: #2d3748; }
   .card-body { padding: 16px 20px; }
-  .inp { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.81rem; color: #2d3748; outline: none; width: 100%; background: white; font-family: inherit; }
+  .inp { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.81rem; color: #2d3748; outline: none; width: 100%; background: white; }
   .inp:focus { border-color: #2b6cb0; box-shadow: 0 0 0 3px rgba(43,108,176,0.1); }
-  .sel { padding: 5px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.78rem; color: #2d3748; background: white; outline: none; font-family: inherit; }
-  .btn-add { padding: 8px 14px; border-radius: 8px; border: none; background: #2b6cb0; color: white; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; }
-  .btn-add:hover { background: #2c5282; }
-  .btn-add:disabled { background: #90cdf4; cursor: not-allowed; }
-  .btn-del { padding: 3px 8px; border-radius: 6px; border: 1px solid #fed7d7; background: #fff5f5; color: #c53030; font-size: 0.7rem; cursor: pointer; font-weight: 600; }
-  .btn-del:hover { background: #fed7d7; }
+  .sel { padding: 5px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.78rem; color: #2d3748; background: white; outline: none; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: #2b6cb0; color: white; } .btn-primary:hover { background: #2c5282; }
+  .btn-danger { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; } .btn-danger:hover { background: #fed7d7; }
+  .btn-sm { padding: 3px 9px; font-size: 0.72rem; }
   .btn-refresh { background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer; }
-  .status-sel { border: 1px solid #e2e8f0; background: #f7fafc; border-radius: 6px; font-size: 0.76rem; cursor: pointer; color: #2d3748; padding: 3px 6px; font-family: inherit; }
+  .status-sel { border: 1px solid #e2e8f0; background: #f7fafc; border-radius: 6px; font-size: 0.76rem; cursor: pointer; color: #2d3748; padding: 3px 6px; }
   .error-bar { background: #fff5f5; border-bottom: 2px solid #fed7d7; padding: 10px 28px; font-size: 0.82rem; color: #c53030; display: flex; justify-content: space-between; align-items: center; }
-  .empty { text-align: center; padding: 40px 20px; color: #a0aec0; }
   .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; padding: 20px 28px 0; }
   .kpi { background: white; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .kpi .label { font-size: 0.7rem; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
@@ -38,7 +36,22 @@
   .kpi .sub { font-size: 0.72rem; color: #a0aec0; margin-top: 4px; }
   .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; padding: 18px 28px 32px; }
   .add-row { display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr auto; gap: 8px; margin-top: 18px; align-items: center; }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  /* Tabs */
+  .tab-bar { background: #1a365d; padding: 0 28px; display: flex; gap: 2px; align-items: flex-end; }
+  .tab-btn { padding: 10px 20px; border: none; border-radius: 8px 8px 0 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: rgba(255,255,255,0.6); background: transparent; display: flex; align-items: center; gap: 7px; transition: all .15s; }
+  .tab-btn:hover { color: white; background: rgba(255,255,255,0.08); }
+  .tab-btn.active { background: #f0f4f8; color: #1a365d; }
+  .tab-badge { background: #e53e3e; color: white; border-radius: 10px; padding: 1px 6px; font-size: 0.65rem; font-weight: 700; }
+  /* Meeting */
+  .meeting-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 20px 28px 32px; }
+  .meeting-full { padding: 0 28px 32px; }
+  .badge { display:inline-block; padding:2px 9px; border-radius:10px; font-size:0.7rem; font-weight:700; }
+  .tag-chip { display:inline-flex; align-items:center; gap:4px; background:#ebf8ff; color:#2b6cb0; border-radius:12px; padding:2px 8px; font-size:0.73rem; font-weight:600; margin:2px; }
+  textarea.inp { resize: vertical; min-height: 80px; }
+  .action-row { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #f7fafc; }
+  .action-row:last-child { border-bottom:none; }
+  .checkbox-done { width:16px; height:16px; cursor:pointer; accent-color:#38a169; flex-shrink:0; margin-top:2px; }
   /* Login */
   .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%); }
   .login-box { background:white; border-radius:16px; padding:40px 36px; width:100%; max-width:380px; box-shadow:0 8px 32px rgba(0,0,0,0.18); }
@@ -46,16 +59,15 @@
   .login-title { text-align:center; font-size:1.15rem; font-weight:800; color:#1a365d; margin-bottom:4px; }
   .login-sub { text-align:center; font-size:0.8rem; color:#a0aec0; margin-bottom:28px; }
   .login-label { font-size:0.78rem; font-weight:600; color:#4a5568; margin-bottom:5px; display:block; }
-  .login-inp { width:100%; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:9px; font-size:0.9rem; outline:none; margin-bottom:16px; font-family:inherit; color:#2d3748; transition:border .2s; }
+  .login-inp { width:100%; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:9px; font-size:0.9rem; outline:none; margin-bottom:16px; color:#2d3748; transition:border .2s; }
   .login-inp:focus { border-color:#2b6cb0; box-shadow:0 0 0 3px rgba(43,108,176,0.1); }
-  .login-btn { width:100%; padding:11px; border-radius:9px; border:none; background:linear-gradient(135deg,#1a365d,#2b6cb0); color:white; font-size:0.95rem; font-weight:700; cursor:pointer; margin-top:4px; font-family:inherit; }
-  .login-btn:hover { opacity:0.9; }
+  .login-btn { width:100%; padding:11px; border-radius:9px; border:none; background:linear-gradient(135deg,#1a365d,#2b6cb0); color:white; font-size:0.95rem; font-weight:700; cursor:pointer; }
   .login-err { background:#fff5f5; border:1px solid #fed7d7; color:#c53030; border-radius:8px; padding:9px 14px; font-size:0.82rem; margin-bottom:14px; text-align:center; }
   .logout-btn { background:rgba(255,255,255,0.15); border:none; color:white; border-radius:6px; padding:3px 10px; font-size:0.72rem; cursor:pointer; margin-left:4px; }
   .logout-btn:hover { background:rgba(255,255,255,0.25); }
   @media (max-width: 960px) {
     .kpi-grid { grid-template-columns: repeat(2,1fr); }
-    .main-grid { grid-template-columns: 1fr; }
+    .main-grid, .meeting-grid { grid-template-columns: 1fr; }
     .add-row { grid-template-columns: 1fr 1fr; }
   }
 </style>
@@ -63,42 +75,106 @@
 <body>
 <div id="login-screen"></div>
 <div id="main-app" style="display:none;">
-  <!-- Static header + team strip (never re-rendered) -->
   <div id="app-header"></div>
-  <!-- Dynamic error bar -->
   <div id="error-bar"></div>
-  <!-- Dynamic KPIs -->
-  <div class="kpi-grid" id="kpi-section"></div>
-  <!-- Main grid: table (left) + panels (right) -->
-  <div class="main-grid">
-    <div class="card">
-      <div class="card-header">
-        <h2>Tasks &amp; Deliverables</h2>
-        <div class="filters" id="filter-bar"></div>
-      </div>
-      <div class="card-body">
-        <div id="task-table-wrap"></div>
-        <!-- Add task row — static, never re-rendered -->
-        <div class="add-row" id="add-task-row"></div>
-      </div>
-    </div>
-    <div>
+  <!-- Tab content -->
+  <div id="tab-tasks">
+    <div class="kpi-grid" id="kpi-section"></div>
+    <div class="main-grid">
       <div class="card">
-        <div class="card-header"><h2>Status Breakdown</h2></div>
+        <div class="card-header">
+          <h2>Tasks &amp; Deliverables</h2>
+          <div class="filters" id="filter-bar"></div>
+        </div>
         <div class="card-body">
-          <div style="display:flex;justify-content:center;padding:8px 0 4px;"><canvas id="donut" width="160" height="160"></canvas></div>
-          <div id="donut-legend" style="margin-top:10px;"></div>
+          <div id="task-table-wrap"></div>
+          <div class="add-row" id="add-task-row"></div>
         </div>
       </div>
-      <div id="workload-card"></div>
+      <div>
+        <div class="card">
+          <div class="card-header"><h2>Status Breakdown</h2></div>
+          <div class="card-body">
+            <div style="display:flex;justify-content:center;padding:8px 0 4px;"><canvas id="donut" width="160" height="160"></canvas></div>
+            <div id="donut-legend" style="margin-top:10px;"></div>
+          </div>
+        </div>
+        <div id="workload-card"></div>
+        <div class="card">
+          <div class="card-header"><h2>Upcoming / Overdue</h2></div>
+          <div class="card-body" id="upcoming-panel"></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 28px 32px;" id="delete-log-section"></div>
+  </div>
+  <!-- Meeting tab -->
+  <div id="tab-meeting" style="display:none;">
+    <div class="meeting-grid">
+      <!-- Upcoming meetings -->
       <div class="card">
-        <div class="card-header"><h2>Upcoming / Overdue</h2></div>
-        <div class="card-body" id="upcoming-panel"></div>
+        <div class="card-header">
+          <h2>📅 Upcoming Meetings</h2>
+          <button class="btn btn-primary btn-sm" onclick="openMeetingModal()">+ New Meeting</button>
+        </div>
+        <div class="card-body" id="meetings-list"></div>
+      </div>
+      <!-- Action items -->
+      <div class="card">
+        <div class="card-header">
+          <h2>✅ Action Items</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select class="sel" id="action-filter" onchange="renderActionItems()" style="font-size:0.75rem;">
+              <option value="">All items</option>
+              <option value="pending">Pending</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" id="action-items-list"></div>
+      </div>
+    </div>
+    <!-- Meeting notes -->
+    <div class="meeting-full">
+      <div class="card">
+        <div class="card-header">
+          <h2>📝 Meeting Notes / Minutes</h2>
+          <select class="sel" id="notes-meeting-filter" onchange="renderMeetingNotes()" style="font-size:0.75rem;">
+            <option value="">All meetings</option>
+          </select>
+        </div>
+        <div class="card-body" id="meeting-notes-list"></div>
       </div>
     </div>
   </div>
-  <!-- Delete log -->
-  <div style="padding:0 28px 32px;" id="delete-log-section"></div>
+</div>
+
+<!-- Meeting Modal -->
+<div id="meeting-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:none;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1rem;font-weight:700;color:#1a365d;">New Meeting</h2>
+      <button onclick="closeMeetingModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <label class="login-label">Meeting Title</label>
+    <input class="inp" id="m-title" placeholder="e.g. Monthly Close Review" style="margin-bottom:12px;" />
+    <label class="login-label">Date &amp; Time</label>
+    <input class="inp" id="m-datetime" type="datetime-local" style="margin-bottom:12px;" />
+    <label class="login-label">Attendees</label>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;" id="m-attendees-wrap">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.82rem;"><input type="checkbox" value="Syaqil" class="m-attendee" style="accent-color:#2b6cb0;"> Syaqil</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.82rem;"><input type="checkbox" value="Ulfah" class="m-attendee" style="accent-color:#6b46c1;"> Ulfah</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.82rem;"><input type="checkbox" value="Batrisyia" class="m-attendee" style="accent-color:#c05621;"> Batrisyia</label>
+    </div>
+    <label class="login-label">Agenda / Notes</label>
+    <textarea class="inp" id="m-notes" placeholder="Meeting agenda, discussion points, decisions…" style="margin-bottom:12px;min-height:100px;resize:vertical;"></textarea>
+    <label class="login-label">Action Items (one per line, format: Task — Assignee)</label>
+    <textarea class="inp" id="m-actions" placeholder="e.g. Send AR report — Batrisyia&#10;Review payroll — Syaqil" style="margin-bottom:20px;min-height:80px;resize:vertical;"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-danger" onclick="closeMeetingModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMeeting()">Save Meeting</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -106,9 +182,9 @@ const SUPABASE_URL = "https://skiovsgqmwlcpyroltlm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNraW92c2dxbXdsY3B5cm9sdGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTQzMjIsImV4cCI6MjA5NDA3MDMyMn0.85rqMwSyXtvCKVThU4ed1WxG6QkCpeEtQX0Fd632WHg";
 
 const USERS = {
-  Syaqil:    { password:"Syaqil@2026",    role:"Accounts Executive",  admin:true  },
-  Ulfah:     { password:"Ulfah@2026",     role:"Accounts Assistant",  admin:true  },
-  Batrisyia: { password:"Batrisyia@2026", role:"Accounts Assistant",  admin:false },
+  Syaqil:    { password:"Syaqil@2026",    role:"Accounts Executive", admin:true  },
+  Ulfah:     { password:"Ulfah@2026",     role:"Accounts Assistant", admin:true  },
+  Batrisyia: { password:"Batrisyia@2026", role:"Accounts Assistant", admin:false },
 };
 const TEAM = {
   Syaqil:    { initials:"SQ", color:"#2b6cb0", pillBg:"#ebf8ff", pillText:"#2b6cb0" },
@@ -120,185 +196,121 @@ const CAT_COLORS    = { AR:"#2b6cb0",AP:"#6b46c1",Payroll:"#c05621",Reporting:"#
 const STATUSES   = ["To Do","In Progress","Done","Blocked"];
 const CATEGORIES = ["AR","AP","Payroll","Reporting","Reconciliation","Other"];
 
-let tasks      = [];
-let deleteLog  = [];
-let lastSync   = null;
-let saving     = false;
-let showDeleteLog = false;
-let filterOwners = new Set(), filterStatuses = new Set(), filterCats = new Set();
-let currentUser = sessionStorage.getItem("currentUser") || null;
+let tasks=[], deleteLog=[], meetings=[], actionItems=[];
+let lastSync=null, saving=false, showDeleteLog=false;
+let filterOwners=new Set(), filterStatuses=new Set(), filterCats=new Set();
+let currentUser=sessionStorage.getItem("currentUser")||null;
+let activeTab="tasks";
 
-const isAdmin = () => USERS[currentUser]?.admin || false;
-const fmtDate = d => { if(!d) return ""; const [y,m,dd]=d.split("-"); return `${dd}/${m}/${y}`; };
-const todayStr = () => new Date().toISOString().split("T")[0];
-const daysUntil = d => Math.round((new Date(d)-new Date(todayStr()))/86400000);
-const esc = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const isAdmin=()=>USERS[currentUser]?.admin||false;
+const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`;};
+const fmtDT=dt=>{if(!dt)return"";const d=new Date(dt);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});};
+const todayStr=()=>new Date().toISOString().split("T")[0];
+const daysUntil=d=>Math.round((new Date(d)-new Date(todayStr()))/86400000);
+const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
 // ── API ───────────────────────────────────────────────────────────────────────
-async function api(path, method="GET", body=null) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-    method,
-    headers: { "apikey":SUPABASE_KEY, "Authorization":`Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json", "Prefer":"return=representation" },
-    body: body ? JSON.stringify(body) : null,
+async function api(path,method="GET",body=null){
+  const res=await fetch(`${SUPABASE_URL}/rest/v1${path}`,{
+    method,headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=representation"},
+    body:body?JSON.stringify(body):null,
   });
-  if (!res.ok) { const e=await res.text(); throw new Error(e); }
-  const t=await res.text(); return t ? JSON.parse(t) : [];
+  if(!res.ok){const e=await res.text();throw new Error(e);}
+  const t=await res.text();return t?JSON.parse(t):[];
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-function showLogin(errMsg) {
-  document.getElementById("main-app").style.display = "none";
-  document.getElementById("login-screen").innerHTML = `
-    <div class="login-wrap">
-      <div class="login-box">
-        <div class="login-logo">📊</div>
-        <div class="login-title">Accounts Team</div>
-        <div class="login-sub">Task Tracker — Please sign in</div>
-        ${errMsg ? `<div class="login-err">${esc(errMsg)}</div>` : ""}
-        <label class="login-label">Username</label>
-        <input class="login-inp" id="login-user" type="text" placeholder="e.g. Syaqil" onkeydown="if(event.key==='Enter')login();" autofocus />
-        <label class="login-label">Password</label>
-        <input class="login-inp" id="login-pass" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')login();" />
-        <button class="login-btn" onclick="login()">Sign In →</button>
-      </div>
-    </div>`;
+function showLogin(errMsg){
+  document.getElementById("main-app").style.display="none";
+  document.getElementById("login-screen").innerHTML=`
+    <div class="login-wrap"><div class="login-box">
+      <div class="login-logo">📊</div>
+      <div class="login-title">Accounts Team App</div>
+      <div class="login-sub">Please sign in to continue</div>
+      ${errMsg?`<div class="login-err">${esc(errMsg)}</div>`:""}
+      <label class="login-label">Username</label>
+      <input class="login-inp" id="login-user" type="text" placeholder="e.g. Syaqil" onkeydown="if(event.key==='Enter')login();" autofocus />
+      <label class="login-label">Password</label>
+      <input class="login-inp" id="login-pass" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')login();" />
+      <button class="login-btn" onclick="login()">Sign In →</button>
+    </div></div>`;
 }
 
-function login() {
-  const u = (document.getElementById("login-user")?.value||"").trim();
-  const p = document.getElementById("login-pass")?.value||"";
-  if (!USERS[u] || USERS[u].password !== p) { showLogin("Incorrect username or password."); return; }
-  currentUser = u;
-  sessionStorage.setItem("currentUser", u);
-  document.getElementById("login-screen").innerHTML = "";
-  document.getElementById("main-app").style.display = "block";
-  buildStaticShell();
-  fetchTasks();
-  fetchDeleteLog();
+function login(){
+  const u=(document.getElementById("login-user")?.value||"").trim();
+  const p=document.getElementById("login-pass")?.value||"";
+  if(!USERS[u]||USERS[u].password!==p){showLogin("Incorrect username or password.");return;}
+  currentUser=u; sessionStorage.setItem("currentUser",u);
+  document.getElementById("login-screen").innerHTML="";
+  document.getElementById("main-app").style.display="block";
+  buildStaticShell(); fetchTasks(); fetchDeleteLog(); fetchMeetings();
 }
 
-function logout() {
-  currentUser = null;
-  sessionStorage.removeItem("currentUser");
-  tasks = []; deleteLog = [];
+function logout(){
+  currentUser=null; sessionStorage.removeItem("currentUser");
+  tasks=[];deleteLog=[];meetings=[];actionItems=[];
   showLogin();
 }
 
-// ── Static shell (header + team strip + add row) — built once per session ─────
-// Filter bar — checkbox dropdowns
-function buildCheckboxDropdown(id, label, options, selectedSet, colorFn) {
-  const count = selectedSet.size;
-  const btnLabel = count === 0 ? label : `${label} (${count})`;
-  const items = options.map(o => {
-    const checked = selectedSet.has(o) ? "checked" : "";
-    const dot = colorFn ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorFn(o)};margin-right:6px;flex-shrink:0;"></span>` : "";
-    return `<label style="display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;font-size:0.82rem;color:#2d3748;white-space:nowrap;border-radius:6px;" 
-      onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background=''"
-      onclick="event.stopPropagation();">
-      <input type="checkbox" ${checked} value="${esc(o)}" data-filter="${id}"
-        onchange="toggleFilter('${id}','${esc(o)}',this.checked)"
-        style="width:15px;height:15px;cursor:pointer;accent-color:#2b6cb0;" />
-      ${dot}${esc(o)}
-    </label>`;
-  }).join("");
-  return `
-    <div style="position:relative;display:inline-block;" id="wrap-${id}">
-      <button onclick="toggleDropdown('${id}')" 
-        style="padding:5px 12px;border:1px solid ${count>0?'#2b6cb0':'#e2e8f0'};border-radius:8px;font-size:0.78rem;color:${count>0?'#2b6cb0':'#2d3748'};background:${count>0?'#ebf8ff':'white'};cursor:pointer;font-family:inherit;font-weight:${count>0?'700':'400'};display:flex;align-items:center;gap:5px;">
-        ${btnLabel} <span style="font-size:0.65rem;opacity:0.6;">▼</span>
-      </button>
-      <div id="dd-${id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:999;min-width:160px;padding:6px 0;">
-        ${items}
-      </div>
-    </div>`;
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab){
+  activeTab=tab;
+  document.getElementById("tab-tasks").style.display=tab==="tasks"?"block":"none";
+  document.getElementById("tab-meeting").style.display=tab==="meeting"?"block":"none";
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("tab-btn-"+tab).classList.add("active");
 }
 
-function toggleDropdown(id) {
-  const dd = document.getElementById("dd-"+id);
-  const allDDs = document.querySelectorAll('[id^="dd-"]');
-  allDDs.forEach(d => { if(d.id !== "dd-"+id) d.style.display="none"; });
-  if (dd) dd.style.display = dd.style.display==="none" ? "block" : "none";
-}
-
-function toggleFilter(filterId, value, checked) {
-  if (filterId==="owner")  { checked ? filterOwners.add(value)   : filterOwners.delete(value); }
-  if (filterId==="status") { checked ? filterStatuses.add(value) : filterStatuses.delete(value); }
-  if (filterId==="cat")    { checked ? filterCats.add(value)     : filterCats.delete(value); }
-  renderTable(); renderSidePanels(); buildFilterBar();
-}
-
-function resetFilters() {
-  filterOwners.clear(); filterStatuses.clear(); filterCats.clear();
-  renderTable(); renderSidePanels(); buildFilterBar();
-}
-
-function buildFilterBar() {
-  const ownerFilter = isAdmin()
-    ? buildCheckboxDropdown("owner","Owner",Object.keys(TEAM),filterOwners,o=>TEAM[o]?.color)
-    : "";
-  const statusFilter = buildCheckboxDropdown("status","Status",STATUSES,filterStatuses,s=>STATUS_COLORS[s]);
-  const catFilter    = buildCheckboxDropdown("cat","Category",CATEGORIES,filterCats,c=>CAT_COLORS[c]);
-  const hasAny = filterOwners.size>0||filterStatuses.size>0||filterCats.size>0;
-  document.getElementById("filter-bar").innerHTML = `
-    ${ownerFilter}${statusFilter}${catFilter}
-    ${hasAny ? `<button onclick="resetFilters()" style="padding:5px 12px;border:1px solid #fed7d7;border-radius:8px;font-size:0.78rem;color:#c53030;background:#fff5f5;cursor:pointer;font-weight:700;font-family:inherit;">✕ Reset</button>` : ""}`;
-  // Close dropdowns when clicking outside
-  document.onclick = (e) => {
-    if (!e.target.closest('[id^="wrap-"]')) {
-      document.querySelectorAll('[id^="dd-"]').forEach(d=>d.style.display="none");
-    }
-  };
-}
-
-buildFilterBar();
-
-// Add task row
-
-function buildStaticShell() {
-  const m = TEAM[currentUser]||{initials:"??",color:"#718096"};
-  const u = USERS[currentUser]||{};
-  const today = new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-
-  document.getElementById("app-header").innerHTML = `
-    <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%);color:white;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <span style="font-size:1.25rem;font-weight:700;">📊 Accounts Team App</span>
+// ── Static shell ──────────────────────────────────────────────────────────────
+function buildStaticShell(){
+  const m=TEAM[currentUser]||{initials:"??",color:"#718096"};
+  const u=USERS[currentUser]||{};
+  const today=new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  document.getElementById("app-header").innerHTML=`
+    <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%);color:white;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:1.2rem;font-weight:700;">📊 Accounts Team App</span>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:0.78rem;opacity:0.8;">${today}</span>
+          <span style="font-size:0.77rem;opacity:0.8;">${today}</span>
           <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);border-radius:20px;padding:4px 12px;">
             <div style="width:22px;height:22px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;">${m.initials}</div>
             <span style="font-size:0.78rem;font-weight:600;">${esc(currentUser)}</span>
             <span style="font-size:0.68rem;opacity:0.7;">· ${esc(u.role||"")}</span>
-            ${u.admin ? `<span style="font-size:0.65rem;background:#f6e05e;color:#744210;border-radius:6px;padding:1px 7px;font-weight:700;">Admin</span>` : ""}
+            ${u.admin?`<span style="font-size:0.65rem;background:#f6e05e;color:#744210;border-radius:6px;padding:1px 7px;font-weight:700;">Admin</span>`:""}
             <button class="logout-btn" onclick="logout()">Sign out</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
           <div class="pulse" style="width:7px;height:7px;border-radius:50%;background:#68d391;"></div>
           <span style="font-size:0.7rem;opacity:0.75;" id="sync-label">Connecting…</span>
-          <button class="btn-refresh" onclick="fetchTasks(true);fetchDeleteLog();">↻ Refresh</button>
+          <button class="btn-refresh" onclick="fetchTasks(true);fetchMeetings();">↻ Refresh</button>
         </div>
       </div>
     </div>
-    <div style="background:#1e4a8a;padding:10px 28px;display:flex;gap:10px;flex-wrap:wrap;">
+    <!-- Team strip -->
+    <div style="background:#1e4a8a;padding:8px 28px;display:flex;gap:10px;flex-wrap:wrap;">
       ${Object.entries(TEAM).map(([name,tm])=>`
-        <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border-radius:20px;padding:5px 14px;font-size:0.77rem;color:white;">
-          <div style="width:22px;height:22px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;">${tm.initials}</div>
-          ${esc(name)} <span style="font-size:0.67rem;opacity:0.7;">· ${esc(USERS[name]?.role||"")}</span>
+        <div style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border-radius:20px;padding:4px 12px;font-size:0.76rem;color:white;">
+          <div style="width:20px;height:20px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;">${tm.initials}</div>
+          ${esc(name)} <span style="font-size:0.66rem;opacity:0.7;">· ${esc(USERS[name]?.role||"")}</span>
         </div>`).join("")}
+    </div>
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-btn-tasks" onclick="switchTab('tasks')">📋 Tasks</button>
+      <button class="tab-btn" id="tab-btn-meeting" onclick="switchTab('meeting')">🤝 Meeting</button>
     </div>`;
 
   buildFilterBar();
 
-  // Add task row — built once, never re-rendered
-  const ownerDisplay = `
-    <div class="inp" style="background:#f7fafc;color:#4a5568;display:flex;align-items:center;gap:6px;cursor:default;">
-      <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${m.initials}</div>
-      ${esc(currentUser)}
-    </div>`;
-  document.getElementById("add-task-row").innerHTML = `
+  // Add task row
+  const tm=TEAM[currentUser]||{initials:"??",color:"#718096"};
+  document.getElementById("add-task-row").innerHTML=`
     <input class="inp" id="new-task-name" type="text" placeholder="Task name…" onkeydown="if(event.key==='Enter')addTask();" />
-    ${ownerDisplay}
+    <div class="inp" style="background:#f7fafc;color:#4a5568;display:flex;align-items:center;gap:6px;cursor:default;">
+      <div style="width:16px;height:16px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${tm.initials}</div>
+      ${esc(currentUser)}
+    </div>
     <select class="inp" id="new-task-cat">
       <option value="">Category…</option>
       ${CATEGORIES.map(c=>`<option>${esc(c)}</option>`).join("")}
@@ -309,266 +321,382 @@ function buildStaticShell() {
       <option value="medium" selected>🟡 Medium</option>
       <option value="low">🟢 Low</option>
     </select>
-    <button class="btn-add" id="add-btn" onclick="addTask()">+ Add</button>`;
+    <button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`;
 }
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
-async function fetchTasks(silent=false) {
-  try {
-    tasks = await api(isAdmin() ? "/tasks?order=created_at.asc" : `/tasks?owner=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
-    lastSync = new Date();
-    updateSyncLabel();
-    renderKPIs();
-    renderTable();
-    renderSidePanels();
-    showError(null);
-  } catch(e) { showError("Could not load tasks: "+e.message); }
+// ── Filter bar ────────────────────────────────────────────────────────────────
+function buildCheckboxDropdown(id,label,options,selectedSet,colorFn){
+  const count=selectedSet.size;
+  const items=options.map(o=>{
+    const checked=selectedSet.has(o)?"checked":"";
+    const dot=colorFn?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colorFn(o)};margin-right:5px;flex-shrink:0;"></span>`:"";
+    return `<label style="display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;font-size:0.82rem;color:#2d3748;border-radius:6px;"
+      onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background=''"
+      onclick="event.stopPropagation();">
+      <input type="checkbox" ${checked} value="${esc(o)}" data-filter="${id}"
+        onchange="toggleFilter('${id}','${esc(o)}',this.checked)"
+        style="width:15px;height:15px;cursor:pointer;accent-color:#2b6cb0;" />
+      ${dot}${esc(o)}
+    </label>`;
+  }).join("");
+  return `<div style="position:relative;display:inline-block;" id="wrap-${id}">
+    <button onclick="toggleDropdown('${id}')"
+      style="padding:5px 12px;border:1px solid ${count>0?"#2b6cb0":"#e2e8f0"};border-radius:8px;font-size:0.78rem;color:${count>0?"#2b6cb0":"#2d3748"};background:${count>0?"#ebf8ff":"white"};cursor:pointer;font-weight:${count>0?"700":"400"};display:flex;align-items:center;gap:5px;">
+      ${label}${count>0?` (${count})`:""} <span style="font-size:0.65rem;opacity:0.6;">▼</span>
+    </button>
+    <div id="dd-${id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:999;min-width:160px;padding:6px 0;">
+      ${items}
+    </div>
+  </div>`;
 }
 
-async function fetchDeleteLog() {
-  try {
-    const logs = await api(isAdmin() ? "/delete_log?order=deleted_at.desc" : `/delete_log?owner=eq.${encodeURIComponent(currentUser)}&order=deleted_at.desc`);
-    deleteLog = logs.map(l=>({
-      ...l, name:l.task_name, status:l.status_at_deletion, progress:l.progress_at_deletion,
-      deletedAt: new Date(l.deleted_at).toLocaleString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})
-    }));
+function toggleDropdown(id){
+  const dd=document.getElementById("dd-"+id);
+  document.querySelectorAll('[id^="dd-"]').forEach(d=>{if(d.id!=="dd-"+id)d.style.display="none";});
+  if(dd)dd.style.display=dd.style.display==="none"?"block":"none";
+}
+
+function toggleFilter(filterId,value,checked){
+  if(filterId==="owner"){checked?filterOwners.add(value):filterOwners.delete(value);}
+  if(filterId==="status"){checked?filterStatuses.add(value):filterStatuses.delete(value);}
+  if(filterId==="cat"){checked?filterCats.add(value):filterCats.delete(value);}
+  renderTable();renderSidePanels();buildFilterBar();
+}
+
+function resetFilters(){filterOwners.clear();filterStatuses.clear();filterCats.clear();renderTable();renderSidePanels();buildFilterBar();}
+
+function buildFilterBar(){
+  const ownerFilter=isAdmin()?buildCheckboxDropdown("owner","Owner",Object.keys(TEAM),filterOwners,o=>TEAM[o]?.color):"";
+  const statusFilter=buildCheckboxDropdown("status","Status",STATUSES,filterStatuses,s=>STATUS_COLORS[s]);
+  const catFilter=buildCheckboxDropdown("cat","Category",CATEGORIES,filterCats,c=>CAT_COLORS[c]);
+  const hasAny=filterOwners.size>0||filterStatuses.size>0||filterCats.size>0;
+  document.getElementById("filter-bar").innerHTML=`
+    ${ownerFilter}${statusFilter}${catFilter}
+    ${hasAny?`<button onclick="resetFilters()" style="padding:5px 12px;border:1px solid #fed7d7;border-radius:8px;font-size:0.78rem;color:#c53030;background:#fff5f5;cursor:pointer;font-weight:700;">✕ Reset</button>`:""}`;
+  document.onclick=e=>{if(!e.target.closest('[id^="wrap-"]'))document.querySelectorAll('[id^="dd-"]').forEach(d=>d.style.display="none");};
+}
+
+// ── Task fetches ──────────────────────────────────────────────────────────────
+async function fetchTasks(silent=false){
+  try{
+    tasks=await api(isAdmin()?"/tasks?order=created_at.asc":`/tasks?owner=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
+    lastSync=new Date(); updateSyncLabel(); renderKPIs(); renderTable(); renderSidePanels(); showError(null);
+  }catch(e){showError("Could not load tasks: "+e.message);}
+}
+
+async function fetchDeleteLog(){
+  try{
+    const logs=await api(isAdmin()?"/delete_log?order=deleted_at.desc":`/delete_log?owner=eq.${encodeURIComponent(currentUser)}&order=deleted_at.desc`);
+    deleteLog=logs.map(l=>({...l,name:l.task_name,status:l.status_at_deletion,progress:l.progress_at_deletion,
+      deletedAt:new Date(l.deleted_at).toLocaleString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})}));
     renderDeleteLog();
-  } catch(e) { console.error("Delete log error:", e.message); }
+  }catch(e){console.error("Delete log:",e.message);}
 }
 
-function updateSyncLabel() {
-  const el = document.getElementById("sync-label");
-  if (el && lastSync) el.textContent = `Live · synced ${lastSync.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;
-}
+function updateSyncLabel(){const el=document.getElementById("sync-label");if(el&&lastSync)el.textContent=`Live · synced ${lastSync.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;}
+function showError(msg){document.getElementById("error-bar").innerHTML=msg?`<div class="error-bar">⚠️ ${esc(msg)}<button onclick="showError(null)" style="background:none;border:none;color:#c53030;cursor:pointer;font-weight:700;">✕</button></div>`:""; }
 
-// ── Targeted renders ──────────────────────────────────────────────────────────
-function showError(msg) {
-  document.getElementById("error-bar").innerHTML = msg
-    ? `<div class="error-bar">⚠️ ${esc(msg)}<button onclick="showError(null)" style="background:none;border:none;color:#c53030;cursor:pointer;font-weight:700;">✕</button></div>`
-    : "";
-}
-
-function renderKPIs() {
-  const total=tasks.length, done=tasks.filter(t=>t.status==="Done").length,
+// ── Task renders ──────────────────────────────────────────────────────────────
+function renderKPIs(){
+  const total=tasks.length,done=tasks.filter(t=>t.status==="Done").length,
         blocked=tasks.filter(t=>t.status==="Blocked").length,
         overdue=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length,
         pct=total?Math.round(done/total*100):0;
-  document.getElementById("kpi-section").innerHTML = `
+  document.getElementById("kpi-section").innerHTML=`
     <div class="kpi" style="border-left:4px solid #2b6cb0;"><div class="label">Total Tasks</div><div class="value" style="color:#1a365d;">${total}</div><div class="sub">${isAdmin()?"across 3 members":"your tasks"}</div></div>
     <div class="kpi" style="border-left:4px solid #38a169;"><div class="label">Completed</div><div class="value" style="color:#276749;">${pct}%</div><div class="sub">${done} of ${total} tasks</div></div>
     <div class="kpi" style="border-left:4px solid #d69e2e;"><div class="label">Blocked</div><div class="value" style="color:#744210;">${blocked}</div><div class="sub">need attention</div></div>
     <div class="kpi" style="border-left:4px solid #e53e3e;"><div class="label">Overdue</div><div class="value" style="color:#822727;">${overdue}</div><div class="sub">past due date</div></div>`;
 }
 
-function renderTable() {
-  const filtered = tasks.filter(t=>
-    (filterOwners.size===0||filterOwners.has(t.owner))&&
-    (filterStatuses.size===0||filterStatuses.has(t.status))&&
-    (filterCats.size===0||filterCats.has(t.category))
-  );
-  if (tasks.length===0) {
-    document.getElementById("task-table-wrap").innerHTML = `<div class="empty"><div style="font-size:2rem;margin-bottom:8px;">📋</div><div style="font-weight:600;margin-bottom:4px;">No tasks yet</div><div style="font-size:0.82rem;">Add your first task below</div></div>`;
-    return;
-  }
-  const rows = filtered.length===0
-    ? `<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:24px;">No tasks match this filter.</td></tr>`
-    : filtered.map(t=>{
-        const m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
-        const d=daysUntil(t.due);
-        const dueColor=t.status!=="Done"&&d<0?"#c53030":t.status!=="Done"&&d<=2?"#744210":"#4a5568";
-        const barColor=t.status==="Done"?"#38a169":t.status==="Blocked"?"#e53e3e":"#2b6cb0";
-        const cc=CAT_COLORS[t.category]||"#718096";
-        const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
-        const statusOpts=STATUSES.map(s=>`<option ${t.status===s?"selected":""}>${esc(s)}</option>`).join("");
-        return `<tr>
-          <td><div style="width:8px;height:8px;border-radius:50%;background:${priColor};display:inline-block;" title="${esc(t.priority)}"></div></td>
-          <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</td>
-          <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
-          <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;">
-            <div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div>
-            <span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span>
-          </div></td>
-          <td style="font-size:0.76rem;color:${dueColor};white-space:nowrap;">${fmtDate(t.due)}</td>
-          <td><select class="status-sel" onchange="updateStatus('${t.id}',this.value)">${statusOpts}</select></td>
-          <td><div style="display:flex;align-items:center;gap:6px;">
-            <div style="background:#e2e8f0;border-radius:4px;height:6px;width:60px;flex-shrink:0;">
-              <div style="width:${t.progress}%;height:100%;border-radius:4px;background:${barColor};transition:width .3s;"></div>
-            </div>
-            <input type="number" min="0" max="100" value="${t.progress}"
-              onchange="updateProgress('${t.id}',this.value)"
-              style="width:38px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.7rem;padding:1px 4px;color:#718096;text-align:center;font-family:inherit;" />
-          </div></td>
-          <td><button class="btn-del" onclick="deleteTask('${t.id}')">✕</button></td>
-        </tr>`;
-      }).join("");
-  document.getElementById("task-table-wrap").innerHTML = `
-    <table><thead><tr>
-      <th>Pri</th><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th>
-    </tr></thead><tbody>${rows}</tbody></table>`;
+function renderTable(){
+  const filtered=tasks.filter(t=>(filterOwners.size===0||filterOwners.has(t.owner))&&(filterStatuses.size===0||filterStatuses.has(t.status))&&(filterCats.size===0||filterCats.has(t.category)));
+  if(tasks.length===0){document.getElementById("task-table-wrap").innerHTML=`<div style="text-align:center;padding:40px 20px;color:#a0aec0;"><div style="font-size:2rem;margin-bottom:8px;">📋</div><div style="font-weight:600;margin-bottom:4px;">No tasks yet</div><div style="font-size:0.82rem;">Add your first task below</div></div>`;return;}
+  const rows=filtered.length===0?`<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:24px;">No tasks match this filter.</td></tr>`:filtered.map(t=>{
+    const m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
+    const d=daysUntil(t.due);
+    const dueColor=t.status!=="Done"&&d<0?"#c53030":t.status!=="Done"&&d<=2?"#744210":"#4a5568";
+    const barColor=t.status==="Done"?"#38a169":t.status==="Blocked"?"#e53e3e":"#2b6cb0";
+    const cc=CAT_COLORS[t.category]||"#718096";
+    const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
+    return `<tr>
+      <td><div style="width:8px;height:8px;border-radius:50%;background:${priColor};display:inline-block;" title="${esc(t.priority)}"></div></td>
+      <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</td>
+      <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
+      <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;">
+        <div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div>
+        <span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span>
+      </div></td>
+      <td style="font-size:0.76rem;color:${dueColor};white-space:nowrap;">${fmtDate(t.due)}</td>
+      <td><select class="status-sel" onchange="updateStatus('${t.id}',this.value)">${STATUSES.map(s=>`<option ${t.status===s?"selected":""}>${esc(s)}</option>`).join("")}</select></td>
+      <td><div style="display:flex;align-items:center;gap:6px;">
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;width:60px;flex-shrink:0;">
+          <div style="width:${t.progress}%;height:100%;border-radius:4px;background:${barColor};transition:width .3s;"></div>
+        </div>
+        <input type="number" min="0" max="100" value="${t.progress}" onchange="updateProgress('${t.id}',this.value)"
+          style="width:38px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.7rem;padding:1px 4px;color:#718096;text-align:center;" />
+      </div></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("task-table-wrap").innerHTML=`<table><thead><tr><th>Pri</th><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function renderSidePanels() {
-  // Donut
-  const counts = STATUSES.map(s=>tasks.filter(t=>t.status===s).length);
-  const total = counts.reduce((a,b)=>a+b,0)||1;
-  const canvas = document.getElementById("donut");
-  if (canvas) {
-    const ctx=canvas.getContext("2d"); ctx.clearRect(0,0,160,160);
+function renderSidePanels(){
+  const counts=STATUSES.map(s=>tasks.filter(t=>t.status===s).length);
+  const total=counts.reduce((a,b)=>a+b,0)||1;
+  const canvas=document.getElementById("donut");
+  if(canvas){
+    const ctx=canvas.getContext("2d");ctx.clearRect(0,0,160,160);
     let angle=-Math.PI/2;
-    counts.forEach((v,i)=>{
-      const slice=(v/total)*2*Math.PI;
-      ctx.beginPath();ctx.moveTo(80,80);ctx.arc(80,80,60,angle,angle+slice);ctx.closePath();
-      ctx.fillStyle=Object.values(STATUS_COLORS)[i];ctx.fill();angle+=slice;
-    });
+    counts.forEach((v,i)=>{const slice=(v/total)*2*Math.PI;ctx.beginPath();ctx.moveTo(80,80);ctx.arc(80,80,60,angle,angle+slice);ctx.closePath();ctx.fillStyle=Object.values(STATUS_COLORS)[i];ctx.fill();angle+=slice;});
     ctx.beginPath();ctx.arc(80,80,36,0,2*Math.PI);ctx.fillStyle="white";ctx.fill();
     const pct=Math.round(counts[2]/total*100);
-    ctx.fillStyle="#1a365d";ctx.font="bold 18px Segoe UI";ctx.textAlign="center";ctx.textBaseline="middle";
-    ctx.fillText(pct+"%",80,72);ctx.font="10px Segoe UI";ctx.fillStyle="#718096";ctx.fillText("complete",80,90);
+    ctx.fillStyle="#1a365d";ctx.font="bold 18px Segoe UI";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(pct+"%",80,72);
+    ctx.font="10px Segoe UI";ctx.fillStyle="#718096";ctx.fillText("complete",80,90);
   }
-  document.getElementById("donut-legend").innerHTML = STATUSES.map((s,i)=>
-    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.79rem;color:#4a5568;">
-      <div style="width:10px;height:10px;border-radius:50%;background:${Object.values(STATUS_COLORS)[i]};flex-shrink:0;"></div>
-      ${esc(s)}<strong style="margin-left:auto;">${counts[i]}</strong>
-    </div>`).join("");
-
-  // Workload (admin only)
-  const wc = document.getElementById("workload-card");
-  if (isAdmin()) {
+  document.getElementById("donut-legend").innerHTML=STATUSES.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.79rem;color:#4a5568;"><div style="width:10px;height:10px;border-radius:50%;background:${Object.values(STATUS_COLORS)[i]};flex-shrink:0;"></div>${esc(s)}<strong style="margin-left:auto;">${counts[i]}</strong></div>`).join("");
+  const wc=document.getElementById("workload-card");
+  if(isAdmin()){
     const maxT=Math.max(...Object.keys(TEAM).map(n=>tasks.filter(t=>t.owner===n).length),1);
-    wc.innerHTML = `<div class="card"><div class="card-header"><h2>Workload by Owner</h2></div><div class="card-body">
-      ${Object.entries(TEAM).map(([name,m])=>{
-        const open=tasks.filter(t=>t.owner===name&&t.status!=="Done").length;
-        const tot=tasks.filter(t=>t.owner===name).length;
-        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-          <div style="width:78px;color:#4a5568;font-weight:600;font-size:0.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(name)}</div>
-          <div style="flex:1;background:#e2e8f0;border-radius:4px;height:8px;">
-            <div style="width:${tot/maxT*100}%;height:100%;border-radius:4px;background:${m.color};transition:width .4s;"></div>
-          </div>
-          <div style="width:20px;text-align:right;color:#718096;font-size:0.73rem;">${tot}</div>
-        </div>
-        <div style="font-size:0.68rem;color:#a0aec0;margin-bottom:10px;margin-left:88px;">${open} open · ${tot-open} done</div>`;
-      }).join("")}
-    </div></div>`;
-  } else { wc.innerHTML = ""; }
-
-  // Upcoming
+    wc.innerHTML=`<div class="card"><div class="card-header"><h2>Workload by Owner</h2></div><div class="card-body">${Object.entries(TEAM).map(([name,m])=>{
+      const open=tasks.filter(t=>t.owner===name&&t.status!=="Done").length,tot=tasks.filter(t=>t.owner===name).length;
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;"><div style="width:78px;color:#4a5568;font-weight:600;font-size:0.76rem;">${esc(name)}</div><div style="flex:1;background:#e2e8f0;border-radius:4px;height:8px;"><div style="width:${tot/maxT*100}%;height:100%;border-radius:4px;background:${m.color};transition:width .4s;"></div></div><div style="width:20px;text-align:right;color:#718096;font-size:0.73rem;">${tot}</div></div><div style="font-size:0.68rem;color:#a0aec0;margin-bottom:10px;margin-left:88px;">${open} open · ${tot-open} done</div>`;
+    }).join("")}</div></div>`;
+  }else{wc.innerHTML="";}
   const upcoming=tasks.filter(t=>t.status!=="Done").sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,7);
-  document.getElementById("upcoming-panel").innerHTML = upcoming.length===0
-    ? `<p style="color:#a0aec0;font-size:0.83rem;">All caught up! 🎉</p>`
-    : upcoming.map(t=>{
-        const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
-        const d=daysUntil(t.due);
-        const [bg,col]=d<0?["#fff5f5","#c53030"]:d<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
-        const label=d<0?`${-d}d overdue`:d===0?"Today":d===1?"Tomorrow":`${d}d left`;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:0.8rem;">
-          <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
-          <span style="flex:1;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
-          <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;background:${bg};color:${col};white-space:nowrap;">${label}</span>
-        </div>`;
-      }).join("");
+  document.getElementById("upcoming-panel").innerHTML=upcoming.length===0?`<p style="color:#a0aec0;font-size:0.83rem;">All caught up! 🎉</p>`:upcoming.map(t=>{
+    const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
+    const d=daysUntil(t.due);
+    const[bg,col]=d<0?["#fff5f5","#c53030"]:d<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
+    const label=d<0?`${-d}d overdue`:d===0?"Today":d===1?"Tomorrow":`${d}d left`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f4f8;font-size:0.8rem;">
+      <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+      <span style="flex:1;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
+      <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;background:${bg};color:${col};white-space:nowrap;">${label}</span>
+    </div>`;
+  }).join("");
 }
 
-function renderDeleteLog() {
-  const sec = document.getElementById("delete-log-section");
-  const rows = deleteLog.length===0
-    ? `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:12px 0;">No tasks have been deleted yet.</p>`
-    : `<table><thead><tr>
-        <th>Task</th><th>Category</th><th>Owner</th><th>Due</th><th>Priority</th><th>Status at Deletion</th><th>Deleted At</th>
-      </tr></thead><tbody>
-      ${deleteLog.map(t=>{
-        const cc=CAT_COLORS[t.category]||"#718096";
-        const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
-        const m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
-        const sc=STATUS_COLORS[t.status]||"#718096";
-        return `<tr style="opacity:0.75;">
-          <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:line-through;color:#718096;" title="${esc(t.name)}">${esc(t.name)}</td>
-          <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
-          <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;">
-            <div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div>
-            <span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span>
-          </div></td>
-          <td style="font-size:0.76rem;color:#718096;">${fmtDate(t.due)}</td>
-          <td style="font-size:0.75rem;color:#718096;">
-            <div style="display:flex;align-items:center;gap:5px;">
-              <div style="width:8px;height:8px;border-radius:50%;background:${priColor};"></div>${esc(t.priority)}
-            </div>
-          </td>
-          <td><span style="font-size:0.72rem;font-weight:600;color:${sc};background:${sc}18;padding:2px 8px;border-radius:10px;">${esc(t.status)}</span></td>
-          <td style="font-size:0.75rem;color:#a0aec0;white-space:nowrap;">${esc(t.deletedAt)}</td>
-        </tr>`;
-      }).join("")}
-      </tbody></table>`;
-
-  sec.innerHTML = `<div class="card">
-    <div class="card-header" style="cursor:pointer;" onclick="showDeleteLog=!showDeleteLog;renderDeleteLog();">
-      <h2>🗑️ Delete Log <span style="font-size:0.75rem;font-weight:400;color:#a0aec0;margin-left:6px;">${deleteLog.length} record${deleteLog.length!==1?"s":""}</span></h2>
-      <span style="color:#718096;font-size:0.8rem;">${showDeleteLog?"▲ Hide":"▼ Show"}</span>
-    </div>
-    ${showDeleteLog ? `<div class="card-body">${rows}</div>` : ""}
-  </div>`;
+function renderDeleteLog(){
+  const sec=document.getElementById("delete-log-section");
+  const rows=deleteLog.length===0?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:12px 0;">No tasks have been deleted yet.</p>`:
+    `<table><thead><tr><th>Task</th><th>Category</th><th>Owner</th><th>Due</th><th>Priority</th><th>Status at Deletion</th><th>Deleted At</th></tr></thead><tbody>
+    ${deleteLog.map(t=>{
+      const cc=CAT_COLORS[t.category]||"#718096",m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"},sc=STATUS_COLORS[t.status]||"#718096";
+      const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
+      return `<tr style="opacity:0.75;">
+        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:line-through;color:#718096;" title="${esc(t.name)}">${esc(t.name)}</td>
+        <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
+        <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;"><div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div><span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span></div></td>
+        <td style="font-size:0.76rem;color:#718096;">${fmtDate(t.due)}</td>
+        <td style="font-size:0.75rem;color:#718096;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:${priColor};"></div>${esc(t.priority)}</div></td>
+        <td><span style="font-size:0.72rem;font-weight:600;color:${sc};background:${sc}18;padding:2px 8px;border-radius:10px;">${esc(t.status)}</span></td>
+        <td style="font-size:0.75rem;color:#a0aec0;white-space:nowrap;">${esc(t.deletedAt)}</td>
+      </tr>`;
+    }).join("")}</tbody></table>`;
+  sec.innerHTML=`<div class="card"><div class="card-header" style="cursor:pointer;" onclick="showDeleteLog=!showDeleteLog;renderDeleteLog();">
+    <h2>🗑️ Delete Log <span style="font-size:0.75rem;font-weight:400;color:#a0aec0;margin-left:6px;">${deleteLog.length} record${deleteLog.length!==1?"s":""}</span></h2>
+    <span style="color:#718096;font-size:0.8rem;">${showDeleteLog?"▲ Hide":"▼ Show"}</span>
+  </div>${showDeleteLog?`<div class="card-body">${rows}</div>`:""}</div>`;
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-async function updateStatus(id, status) {
-  const progress = status==="Done"?100:status==="To Do"?0:(tasks.find(t=>t.id===id)||{}).progress||0;
-  tasks = tasks.map(t=>t.id===id?{...t,status,progress}:t);
-  renderKPIs(); renderTable(); renderSidePanels();
-  try { await api(`/tasks?id=eq.${id}`,"PATCH",{status,progress}); updateSyncLabel(); }
-  catch(e) { showError("Save failed: "+e.message); fetchTasks(); }
+// ── Task actions ──────────────────────────────────────────────────────────────
+async function updateStatus(id,status){
+  const progress=status==="Done"?100:status==="To Do"?0:(tasks.find(t=>t.id===id)||{}).progress||0;
+  tasks=tasks.map(t=>t.id===id?{...t,status,progress}:t);
+  renderKPIs();renderTable();renderSidePanels();
+  try{await api(`/tasks?id=eq.${id}`,"PATCH",{status,progress});updateSyncLabel();}
+  catch(e){showError("Save failed: "+e.message);fetchTasks();}
 }
 
-async function updateProgress(id, progress) {
+async function updateProgress(id,progress){
   progress=Math.min(100,Math.max(0,Number(progress)||0));
   tasks=tasks.map(t=>t.id===id?{...t,progress}:t);
-  renderTable(); renderSidePanels();
-  try { await api(`/tasks?id=eq.${id}`,"PATCH",{progress}); updateSyncLabel(); }
-  catch(e) { showError("Save failed: "+e.message); }
+  renderTable();renderSidePanels();
+  try{await api(`/tasks?id=eq.${id}`,"PATCH",{progress});updateSyncLabel();}
+  catch(e){showError("Save failed: "+e.message);}
 }
 
-async function deleteTask(id) {
+async function deleteTask(id){
   const task=tasks.find(t=>t.id===id);
   tasks=tasks.filter(t=>t.id!==id);
-  renderKPIs(); renderTable(); renderSidePanels();
-  try {
+  renderKPIs();renderTable();renderSidePanels();
+  try{
     await api(`/tasks?id=eq.${id}`,"DELETE");
-    if (task) {
-      await api("/delete_log","POST",{task_name:task.name,owner:task.owner,category:task.category,due:task.due,priority:task.priority,status_at_deletion:task.status,progress_at_deletion:task.progress});
-      await fetchDeleteLog();
-    }
+    if(task){await api("/delete_log","POST",{task_name:task.name,owner:task.owner,category:task.category,due:task.due,priority:task.priority,status_at_deletion:task.status,progress_at_deletion:task.progress});await fetchDeleteLog();}
     updateSyncLabel();
-  } catch(e) { showError("Delete failed: "+e.message); fetchTasks(); }
+  }catch(e){showError("Delete failed: "+e.message);fetchTasks();}
 }
 
-async function addTask() {
+async function addTask(){
   const name=(document.getElementById("new-task-name")?.value||"").trim();
   const category=document.getElementById("new-task-cat")?.value||"Other";
   const due=document.getElementById("new-task-due")?.value||"";
   const priority=document.getElementById("new-task-priority")?.value||"medium";
-  if (!name||!due) { alert("Please fill in task name and due date."); return; }
+  if(!name||!due){alert("Please fill in task name and due date.");return;}
   const btn=document.getElementById("add-btn");
   if(btn){btn.disabled=true;btn.textContent="Saving…";}
-  try {
+  try{
     const created=await api("/tasks","POST",{name,owner:currentUser,category:category||"Other",due,priority,status:"To Do",progress:0});
     tasks=[...tasks,...(Array.isArray(created)?created:[created])];
     document.getElementById("new-task-name").value="";
     document.getElementById("new-task-due").value="";
     document.getElementById("new-task-cat").value="";
     document.getElementById("new-task-priority").value="medium";
-    updateSyncLabel(); renderKPIs(); renderTable(); renderSidePanels();
-  } catch(e) { showError("Could not add task: "+e.message); }
-  finally { if(btn){btn.disabled=false;btn.textContent="+ Add";} }
+    updateSyncLabel();renderKPIs();renderTable();renderSidePanels();
+  }catch(e){showError("Could not add task: "+e.message);}
+  finally{if(btn){btn.disabled=false;btn.textContent="+ Add";}}
+}
+
+// ── Meeting ───────────────────────────────────────────────────────────────────
+async function fetchMeetings(){
+  try{
+    const data=await api("/meetings?order=meeting_date.asc");
+    meetings=data;
+    const acts=await api("/action_items?order=created_at.asc");
+    actionItems=acts;
+    renderMeetings();renderActionItems();renderMeetingNotes();
+  }catch(e){console.error("Meetings:",e.message);}
+}
+
+function openMeetingModal(){
+  document.getElementById("meeting-modal").style.display="flex";
+  document.getElementById("m-title").value="";
+  document.getElementById("m-datetime").value="";
+  document.getElementById("m-notes").value="";
+  document.getElementById("m-actions").value="";
+  document.querySelectorAll(".m-attendee").forEach(c=>c.checked=false);
+}
+function closeMeetingModal(){document.getElementById("meeting-modal").style.display="none";}
+
+async function saveMeeting(){
+  const title=document.getElementById("m-title").value.trim();
+  const dt=document.getElementById("m-datetime").value;
+  const notes=document.getElementById("m-notes").value.trim();
+  const actionsRaw=document.getElementById("m-actions").value.trim();
+  const attendees=[...document.querySelectorAll(".m-attendee:checked")].map(c=>c.value);
+  if(!title||!dt){alert("Please fill in meeting title and date.");return;}
+  try{
+    const created=await api("/meetings","POST",{title,meeting_date:dt,attendees:attendees.join(","),notes,created_by:currentUser});
+    const mtg=Array.isArray(created)?created[0]:created;
+    meetings=[...meetings,mtg].sort((a,b)=>new Date(a.meeting_date)-new Date(b.meeting_date));
+    // Save action items
+    if(actionsRaw&&mtg){
+      const lines=actionsRaw.split("\n").filter(l=>l.trim());
+      for(const line of lines){
+        const parts=line.split("—").map(s=>s.trim());
+        const taskName=parts[0]||line.trim();
+        const assignee=parts[1]||currentUser;
+        await api("/action_items","POST",{meeting_id:mtg.id,task_name:taskName,assignee,status:"pending",created_by:currentUser});
+      }
+      const acts=await api("/action_items?order=created_at.asc");
+      actionItems=acts;
+    }
+    closeMeetingModal();
+    renderMeetings();renderActionItems();renderMeetingNotes();
+  }catch(e){alert("Could not save meeting: "+e.message);}
+}
+
+function renderMeetings(){
+  const now=new Date();
+  const upcoming=meetings.filter(m=>new Date(m.meeting_date)>=now).slice(0,8);
+  const past=meetings.filter(m=>new Date(m.meeting_date)<now).slice(-3).reverse();
+  const el=document.getElementById("meetings-list");if(!el)return;
+
+  const renderCard=(m,isPast)=>{
+    const d=new Date(m.meeting_date);
+    const diff=Math.round((d-now)/60000);
+    const label=isPast?"Past":diff<0?`${Math.abs(diff)}m ago`:diff<60?`In ${diff}m`:diff<1440?`In ${Math.floor(diff/60)}h`:`In ${Math.floor(diff/1440)}d`;
+    const labelColor=isPast?"#a0aec0":diff<=60?"#c53030":diff<=1440?"#744210":"#276749";
+    const labelBg=isPast?"#f7fafc":diff<=60?"#fff5f5":diff<=1440?"#fefcbf":"#f0fff4";
+    const attendeeList=(m.attendees||"").split(",").filter(Boolean);
+    return `<div style="padding:12px 0;border-bottom:1px solid #f0f4f8;" ${isPast?"style='opacity:0.6;'":""}>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+        <div style="font-weight:700;font-size:0.87rem;color:#2d3748;flex:1;">${esc(m.title)}</div>
+        <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;background:${labelBg};color:${labelColor};white-space:nowrap;">${label}</span>
+      </div>
+      <div style="font-size:0.77rem;color:#718096;margin-bottom:6px;">📅 ${fmtDT(m.meeting_date)}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        ${attendeeList.map(a=>{const tm=TEAM[a];return tm?`<div style="width:20px;height:20px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.58rem;font-weight:700;color:white;" title="${esc(a)}">${tm.initials}</div>`:`<span class="tag-chip">${esc(a)}</span>`;}).join("")}
+      </div>
+    </div>`;
+  };
+
+  el.innerHTML=(upcoming.length===0&&past.length===0)
+    ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:20px 0;">No meetings scheduled yet.<br>Click + New Meeting to add one.</p>`
+    :`${upcoming.map(m=>renderCard(m,false)).join("")}
+      ${past.length>0?`<div style="font-size:0.72rem;color:#a0aec0;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 4px;font-weight:600;">Past</div>${past.map(m=>renderCard(m,true)).join("")}`:""}`;
+
+  // Update notes filter dropdown
+  const sel=document.getElementById("notes-meeting-filter");
+  if(sel){
+    const cur=sel.value;
+    sel.innerHTML=`<option value="">All meetings</option>${meetings.map(m=>`<option value="${m.id}" ${cur==m.id?"selected":""}>${esc(m.title)} (${fmtDT(m.meeting_date)})</option>`).join("")}`;
+  }
+}
+
+function renderActionItems(){
+  const el=document.getElementById("action-items-list");if(!el)return;
+  const filt=document.getElementById("action-filter")?.value||"";
+  let items=actionItems;
+  if(filt==="pending")items=items.filter(a=>a.status==="pending");
+  if(filt==="done")items=items.filter(a=>a.status==="done");
+  if(items.length===0){el.innerHTML=`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:20px 0;">No action items yet.</p>`;return;}
+  el.innerHTML=items.map(a=>{
+    const m=TEAM[a.assignee]||{initials:"??",color:"#718096"};
+    const isDone=a.status==="done";
+    const mtg=meetings.find(mt=>mt.id===a.meeting_id);
+    return `<div class="action-row">
+      <input type="checkbox" class="checkbox-done" ${isDone?"checked":""} onchange="toggleActionItem('${a.id}',this.checked)" />
+      <div style="flex:1;">
+        <div style="font-size:0.83rem;font-weight:500;color:${isDone?"#a0aec0":"#2d3748"};text-decoration:${isDone?"line-through":"none"};">${esc(a.task_name)}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${m.initials}</div>
+          <span style="font-size:0.73rem;color:#718096;">${esc(a.assignee)}</span>
+          ${mtg?`<span style="font-size:0.7rem;color:#a0aec0;">· ${esc(mtg.title)}</span>`:""}
+        </div>
+      </div>
+      <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;background:${isDone?"#f0fff4":"#fefcbf"};color:${isDone?"#276749":"#744210"};">${isDone?"Done":"Pending"}</span>
+    </div>`;
+  }).join("");
+}
+
+async function toggleActionItem(id,done){
+  const status=done?"done":"pending";
+  actionItems=actionItems.map(a=>a.id===id?{...a,status}:a);
+  renderActionItems();
+  try{await api(`/action_items?id=eq.${id}`,"PATCH",{status});}
+  catch(e){showError("Could not update action item.");}
+}
+
+function renderMeetingNotes(){
+  const el=document.getElementById("meeting-notes-list");if(!el)return;
+  const filt=document.getElementById("notes-meeting-filter")?.value||"";
+  let list=meetings.filter(m=>m.notes&&m.notes.trim());
+  if(filt)list=list.filter(m=>String(m.id)===String(filt));
+  if(list.length===0){el.innerHTML=`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:20px 0;">No meeting notes yet. Add notes when creating a meeting.</p>`;return;}
+  el.innerHTML=list.map(m=>{
+    const attendeeList=(m.attendees||"").split(",").filter(Boolean);
+    return `<div style="padding:16px 0;border-bottom:1px solid #f0f4f8;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+        <div style="font-weight:700;font-size:0.92rem;color:#1a365d;">${esc(m.title)}</div>
+        <div style="font-size:0.76rem;color:#718096;">📅 ${fmtDT(m.meeting_date)}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">
+        ${attendeeList.map(a=>{const tm=TEAM[a];return tm?`<div style="display:inline-flex;align-items:center;gap:4px;background:${tm.pillBg||"#f7fafc"};border-radius:12px;padding:2px 8px 2px 4px;"><div style="width:16px;height:16px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${tm.initials}</div><span style="font-size:0.72rem;font-weight:600;color:${tm.pillText||"#4a5568"};">${esc(a)}</span></div>`:`<span class="tag-chip">${esc(a)}</span>`;}).join("")}
+      </div>
+      <div style="font-size:0.83rem;color:#4a5568;line-height:1.6;white-space:pre-wrap;background:#f7fafc;border-radius:8px;padding:12px;">${esc(m.notes)}</div>
+    </div>`;
+  }).join("");
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-if (currentUser) {
+if(currentUser){
   document.getElementById("main-app").style.display="block";
-  buildStaticShell();
-  fetchTasks();
-  fetchDeleteLog();
-} else {
-  showLogin();
-}
-setInterval(()=>{ if(currentUser) fetchTasks(); }, 10000);
+  buildStaticShell();fetchTasks();fetchDeleteLog();fetchMeetings();
+}else{showLogin();}
+setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();}},10000);
 </script>
 </body>
 </html>
