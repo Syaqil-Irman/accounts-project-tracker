@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Accounts Team App</title>
+<title>M2 Accounts Team App</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
@@ -229,7 +229,7 @@ function showLogin(errMsg){
   document.getElementById("login-screen").innerHTML=`
     <div class="login-wrap"><div class="login-box">
       <div class="login-logo">📊</div>
-      <div class="login-title">Accounts Team App</div>
+      <div class="login-title">M2 Accounts Team App</div>
       <div class="login-sub">Please sign in to continue</div>
       ${errMsg?`<div class="login-err">${esc(errMsg)}</div>`:""}
       <label class="login-label">Username</label>
@@ -274,7 +274,7 @@ function buildStaticShell(){
   const today=new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
   document.getElementById("app-header").innerHTML=`
     <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%);color:white;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <span style="font-size:1.2rem;font-weight:700;">📊 Accounts Team App</span>
+      <span style="font-size:1.2rem;font-weight:700;">📊 M2 Accounts Team App</span>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:0.77rem;opacity:0.8;">${today}</span>
