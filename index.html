@@ -108,6 +108,10 @@
     </div>
     <div style="padding:0 28px 32px;" id="delete-log-section"></div>
   </div>
+  <!-- Dashboard tab -->
+  <div id="tab-dashboard" style="display:none;">
+    <div style="padding:20px 28px 32px;" id="dashboard-content"></div>
+  </div>
   <!-- Meeting tab -->
   <div id="tab-meeting" style="display:none;">
     <div class="meeting-grid">
@@ -255,10 +259,12 @@ function logout(){
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab){
   activeTab=tab;
+  document.getElementById("tab-dashboard").style.display=tab==="dashboard"?"block":"none";
   document.getElementById("tab-tasks").style.display=tab==="tasks"?"block":"none";
   document.getElementById("tab-meeting").style.display=tab==="meeting"?"block":"none";
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById("tab-btn-"+tab).classList.add("active");
+  if(tab==="dashboard") renderDashboard();
 }
 
 // ── Static shell ──────────────────────────────────────────────────────────────
@@ -297,6 +303,7 @@ function buildStaticShell(){
     </div>
     <!-- Tab bar -->
     <div class="tab-bar">
+      <button class="tab-btn" id="tab-btn-dashboard" onclick="switchTab('dashboard')">🏠 Dashboard</button>
       <button class="tab-btn active" id="tab-btn-tasks" onclick="switchTab('tasks')">📋 Tasks</button>
       <button class="tab-btn" id="tab-btn-meeting" onclick="switchTab('meeting')">🤝 Meeting</button>
     </div>`;
@@ -381,6 +388,7 @@ async function fetchTasks(silent=false){
   try{
     tasks=await api(isAdmin()?"/tasks?order=created_at.asc":`/tasks?owner=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
     lastSync=new Date(); updateSyncLabel(); renderKPIs(); renderTable(); renderSidePanels(); showError(null);
+    if(activeTab==="dashboard") renderDashboard();
   }catch(e){showError("Could not load tasks: "+e.message);}
 }
 
@@ -557,6 +565,7 @@ async function fetchMeetings(){
     const acts=await api("/action_items?order=created_at.asc");
     actionItems=acts;
     renderMeetings();renderActionItems();renderMeetingNotes();
+    if(activeTab==="dashboard") renderDashboard();
   }catch(e){console.error("Meetings:",e.message);}
 }
 
@@ -689,6 +698,216 @@ function renderMeetingNotes(){
       <div style="font-size:0.83rem;color:#4a5568;line-height:1.6;white-space:pre-wrap;background:#f7fafc;border-radius:8px;padding:12px;">${esc(m.notes)}</div>
     </div>`;
   }).join("");
+}
+
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const el=document.getElementById("dashboard-content"); if(!el)return;
+  const now=new Date();
+  const today=todayStr();
+
+  // Task stats
+  const total=tasks.length;
+  const done=tasks.filter(t=>t.status==="Done").length;
+  const inProg=tasks.filter(t=>t.status==="In Progress").length;
+  const blocked=tasks.filter(t=>t.status==="Blocked").length;
+  const overdue=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length;
+  const dueSoon=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)>=0&&daysUntil(t.due)<=3).length;
+  const pct=total?Math.round(done/total*100):0;
+
+  // Meeting stats
+  const upcomingMtgs=meetings.filter(m=>new Date(m.meeting_date)>=now);
+  const nextMtg=upcomingMtgs[0]||null;
+  const pendingActions=actionItems.filter(a=>a.status==="pending").length;
+  const doneActions=actionItems.filter(a=>a.status==="done").length;
+
+  // Per-member stats (admin only)
+  const memberStats=Object.keys(TEAM).map(name=>{
+    const mine=tasks.filter(t=>t.owner===name);
+    const myDone=mine.filter(t=>t.status==="Done").length;
+    const myBlocked=mine.filter(t=>t.status==="Blocked").length;
+    const myOverdue=mine.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length;
+    const myPct=mine.length?Math.round(myDone/mine.length*100):0;
+    return{name,total:mine.length,done:myDone,blocked:myBlocked,overdue:myOverdue,pct:myPct};
+  });
+
+  // Recent activity (last 5 deleted + recently done)
+  const recentDone=tasks.filter(t=>t.status==="Done").slice(-3).reverse();
+  const recentDeleted=deleteLog.slice(0,3);
+
+  // Overdue tasks list
+  const overdueList=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,5);
+
+  // Upcoming tasks (due in 7 days)
+  const upcoming7=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)>=0&&daysUntil(t.due)<=7).sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,5);
+
+  el.innerHTML=`
+    <!-- Welcome banner -->
+    <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);border-radius:14px;padding:24px 28px;color:white;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:1.3rem;font-weight:800;margin-bottom:4px;">Good ${now.getHours()<12?"morning":now.getHours()<17?"afternoon":"evening"}, ${esc(currentUser)}! 👋</div>
+        <div style="font-size:0.85rem;opacity:0.85;">Here's your team overview for ${now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+      </div>
+      ${nextMtg?`<div style="background:rgba(255,255,255,0.12);border-radius:10px;padding:12px 18px;text-align:center;">
+        <div style="font-size:0.7rem;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Next Meeting</div>
+        <div style="font-size:0.88rem;font-weight:700;">${esc(nextMtg.title)}</div>
+        <div style="font-size:0.76rem;opacity:0.85;margin-top:2px;">📅 ${fmtDT(nextMtg.meeting_date)}</div>
+      </div>`:`<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 18px;text-align:center;opacity:0.7;">
+        <div style="font-size:0.7rem;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Next Meeting</div>
+        <div style="font-size:0.85rem;">None scheduled</div>
+      </div>`}
+    </div>
+
+    <!-- Summary KPI row -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px;">
+      ${[
+        {label:"Total Tasks",val:total,color:"#2b6cb0",valCol:"#1a365d"},
+        {label:"Completed",val:pct+"%",color:"#38a169",valCol:"#276749"},
+        {label:"In Progress",val:inProg,color:"#d69e2e",valCol:"#744210"},
+        {label:"Blocked",val:blocked,color:"#e53e3e",valCol:"#822727"},
+        {label:"Due Soon",val:dueSoon,color:"#6b46c1",valCol:"#44337a"},
+        {label:"Action Items",val:pendingActions+" pending",color:"#c05621",valCol:"#7b341e"},
+      ].map(k=>`<div style="background:white;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.07);border-top:3px solid ${k.color};">
+        <div style="font-size:0.65rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${k.label}</div>
+        <div style="font-size:1.5rem;font-weight:800;color:${k.valCol};line-height:1;">${k.val}</div>
+      </div>`).join("")}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+
+      <!-- Overdue tasks -->
+      <div class="card">
+        <div class="card-header" style="background:#fff5f5;">
+          <h2 style="color:#c53030;">🚨 Overdue Tasks (${overdue})</h2>
+          <button onclick="switchTab('tasks')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
+        </div>
+        <div class="card-body">
+          ${overdueList.length===0
+            ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">🎉 No overdue tasks!</p>`
+            :overdueList.map(t=>{
+              const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
+              const d=Math.abs(daysUntil(t.due));
+              return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f7fafc;">
+                <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+                <span style="flex:1;font-size:0.82rem;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
+                <span style="font-size:0.7rem;font-weight:700;background:#fff5f5;color:#c53030;padding:2px 7px;border-radius:10px;white-space:nowrap;">${d}d ago</span>
+              </div>`;
+            }).join("")
+          }
+        </div>
+      </div>
+
+      <!-- Due this week -->
+      <div class="card">
+        <div class="card-header" style="background:#fefcbf20;">
+          <h2>📆 Due This Week (${upcoming7.length})</h2>
+          <button onclick="switchTab('tasks')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
+        </div>
+        <div class="card-body">
+          ${upcoming7.length===0
+            ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">Nothing due in the next 7 days.</p>`
+            :upcoming7.map(t=>{
+              const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
+              const d=daysUntil(t.due);
+              const label=d===0?"Today":d===1?"Tomorrow":`${d}d left`;
+              const[bg,col]=d<=1?["#fff5f5","#c53030"]:d<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
+              return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f7fafc;">
+                <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+                <span style="flex:1;font-size:0.82rem;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
+                <span style="font-size:0.7rem;font-weight:700;background:${bg};color:${col};padding:2px 7px;border-radius:10px;white-space:nowrap;">${label}</span>
+              </div>`;
+            }).join("")
+          }
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:${isAdmin()?"1fr 1fr":"1fr"};gap:18px;margin-bottom:18px;">
+
+      ${isAdmin()?`
+      <!-- Team performance -->
+      <div class="card">
+        <div class="card-header"><h2>👥 Team Performance</h2></div>
+        <div class="card-body">
+          ${memberStats.map(s=>{
+            const m=TEAM[s.name];
+            return `<div style="margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="width:28px;height:28px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:white;">${m.initials}</div>
+                <div style="flex:1;">
+                  <div style="font-size:0.85rem;font-weight:700;color:#2d3748;">${esc(s.name)}</div>
+                  <div style="font-size:0.72rem;color:#718096;">${s.total} tasks · ${s.done} done · ${s.overdue} overdue · ${s.blocked} blocked</div>
+                </div>
+                <div style="font-size:1.1rem;font-weight:800;color:${m.color};">${s.pct}%</div>
+              </div>
+              <div style="background:#e2e8f0;border-radius:4px;height:7px;">
+                <div style="width:${s.pct}%;height:100%;border-radius:4px;background:${m.color};transition:width .5s;"></div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>`:""}
+
+      <!-- Action items summary -->
+      <div class="card">
+        <div class="card-header"><h2>✅ Action Items Summary</h2>
+          <button onclick="switchTab('meeting')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
+        </div>
+        <div class="card-body">
+          ${actionItems.length===0
+            ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No action items yet.</p>`
+            :`<div style="display:flex;gap:16px;margin-bottom:16px;">
+                <div style="flex:1;background:#f0fff4;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:1.5rem;font-weight:800;color:#276749;">${doneActions}</div>
+                  <div style="font-size:0.72rem;color:#38a169;font-weight:600;">Done</div>
+                </div>
+                <div style="flex:1;background:#fefcbf;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:1.5rem;font-weight:800;color:#744210;">${pendingActions}</div>
+                  <div style="font-size:0.72rem;color:#d69e2e;font-weight:600;">Pending</div>
+                </div>
+              </div>
+              ${actionItems.filter(a=>a.status==="pending").slice(0,4).map(a=>{
+                const m=TEAM[a.assignee]||{initials:"??",color:"#718096"};
+                return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f7fafc;font-size:0.81rem;">
+                  <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+                  <span style="flex:1;color:#2d3748;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.task_name)}</span>
+                  <span style="font-size:0.7rem;background:#fefcbf;color:#744210;padding:2px 7px;border-radius:10px;font-weight:600;">Pending</span>
+                </div>`;
+              }).join("")}`
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming meetings strip -->
+    ${upcomingMtgs.length>0?`
+    <div class="card">
+      <div class="card-header"><h2>🗓️ Upcoming Meetings</h2>
+        <button onclick="switchTab('meeting')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+          ${upcomingMtgs.slice(0,4).map(m=>{
+            const d=new Date(m.meeting_date);
+            const diff=Math.round((d-now)/60000);
+            const label=diff<60?`In ${diff}m`:diff<1440?`In ${Math.floor(diff/60)}h ${diff%60}m`:`In ${Math.floor(diff/1440)}d`;
+            const attendeeList=(m.attendees||"").split(",").filter(Boolean);
+            return `<div style="background:#f7fafc;border-radius:10px;padding:14px;border-left:3px solid #2b6cb0;">
+              <div style="font-weight:700;font-size:0.85rem;color:#1a365d;margin-bottom:4px;">${esc(m.title)}</div>
+              <div style="font-size:0.75rem;color:#718096;margin-bottom:8px;">📅 ${fmtDT(m.meeting_date)}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;gap:3px;">
+                  ${attendeeList.map(a=>{const tm=TEAM[a];return tm?`<div style="width:18px;height:18px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;" title="${esc(a)}">${tm.initials}</div>`:"";}).join("")}
+                </div>
+                <span style="font-size:0.72rem;font-weight:700;background:#ebf8ff;color:#2b6cb0;padding:2px 8px;border-radius:10px;">${label}</span>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>`:""}
+  `;
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
