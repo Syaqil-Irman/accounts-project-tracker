@@ -74,8 +74,9 @@
   .dash-module.hidden-module { display:none; }
   .drag-handle { display:flex; align-items:center; gap:6px; padding:13px 18px; border-bottom:1px solid #e2e8f0; justify-content:space-between; }
   .drag-handle h3 { font-size:0.88rem; font-weight:700; color:#2d3748; }
-  .drag-handle-icon { color:#cbd5e0; cursor:grab; font-size:1rem; padding:2px 4px; }
-  .drag-handle-icon:hover { color:#718096; }
+  .drag-handle-icon { color:#cbd5e0; font-size:1.1rem; padding:4px 6px; border-radius:5px; user-select:none; -webkit-user-select:none; cursor:grab; transition:background .15s,color .15s; }
+  .drag-handle-icon:hover { color:#2b6cb0; background:#ebf8ff; }
+  .drag-handle-icon:active { cursor:grabbing; }
   .dash-module-body { padding:16px 18px; }
   .dash-edit-btn { font-size:0.72rem; padding:3px 10px; border-radius:7px; border:1px solid #2b6cb0; background:white; color:#2b6cb0; cursor:pointer; font-weight:600; }
   .dash-edit-btn.active { background:#2b6cb0; color:white; }
@@ -882,11 +883,7 @@ function renderDashboard(){
     const isHidden = layout.hidden.includes(key);
     const m = MODULES[key]; if(!m) return "";
     const innerHTML = buildModuleInner(key);
-    return `<div class="dash-module${isHidden?" hidden-module":""}" data-key="${key}" draggable="true"
-      ondragstart="dashDragStart(event,this)"
-      ondragover="dashDragOver(event,this)"
-      ondrop="dashDrop(event,this)"
-      ondragend="dashDragEnd(event,this)"
+    return `<div class="dash-module${isHidden?" hidden-module":""}" data-key="${key}" draggable="false"
       style="${m.size==="full"?"grid-column:1/-1":""}">
       <div class="drag-handle">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -1110,42 +1107,75 @@ function renderDashboard(){
       ${visibleOrder.map(key=>buildModule(key)).join("")}
     </div>
   `;
+  // Init drag after DOM is painted
+  if(isEditMode) requestAnimationFrame(()=>requestAnimationFrame(()=>initDashDrag()));
 }
 
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
 let dashDragSrc = null;
 
-function dashDragStart(e, el){
-  dashDragSrc = el;
-  el.classList.add("dragging");
-  e.dataTransfer.effectAllowed = "move";
+function initDashDrag(){
+  const grid = document.getElementById("dash-grid");
+  if(!grid) return;
+  const modules = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")];
+
+  modules.forEach(el=>{
+    const handle = el.querySelector(".drag-handle-icon");
+    if(!handle) return;
+
+    // Only allow drag from handle
+    handle.addEventListener("mousedown", ()=>{ el.setAttribute("draggable","true"); });
+    el.addEventListener("dragend", ()=>{ el.setAttribute("draggable","false"); });
+
+    el.addEventListener("dragstart", e=>{
+      dashDragSrc = el;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", el.dataset.key);
+      setTimeout(()=>el.classList.add("dragging"), 0);
+    });
+
+    el.addEventListener("dragend", e=>{
+      el.classList.remove("dragging");
+      el.setAttribute("draggable","false");
+      grid.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
+      dashDragSrc = null;
+    });
+
+    el.addEventListener("dragover", e=>{
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if(el !== dashDragSrc){
+        grid.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
+        el.classList.add("drag-over");
+      }
+    });
+
+    el.addEventListener("dragleave", e=>{
+      el.classList.remove("drag-over");
+    });
+
+    el.addEventListener("drop", e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove("drag-over");
+      if(!dashDragSrc || dashDragSrc===el) return;
+      const srcKey = dashDragSrc.dataset.key;
+      const tgtKey = el.dataset.key;
+      if(!srcKey||!tgtKey) return;
+      const layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||JSON.stringify({order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]}));
+      const si=layout.order.indexOf(srcKey), ti=layout.order.indexOf(tgtKey);
+      if(si>-1&&ti>-1){ layout.order.splice(si,1); layout.order.splice(ti,0,srcKey); }
+      sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
+      renderDashboard();
+    });
+  });
 }
 
-function dashDragOver(e, el){
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-  document.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
-  if(el !== dashDragSrc) el.classList.add("drag-over");
-}
-
-function dashDrop(e, el){
-  e.preventDefault();
-  if(!dashDragSrc || dashDragSrc===el) return;
-  const srcKey = dashDragSrc.dataset.key;
-  const tgtKey = el.dataset.key;
-  const layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||`{"order":${JSON.stringify(Object.keys({welcome:1,kpis:1,overdue:1,dueweek:1,team:1,actions:1,meetings:1,payments:1}))},"hidden":[]}`);
-  const si = layout.order.indexOf(srcKey);
-  const ti = layout.order.indexOf(tgtKey);
-  if(si>-1&&ti>-1){ layout.order.splice(si,1); layout.order.splice(ti,0,srcKey); }
-  sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
-  renderDashboard();
-}
-
-function dashDragEnd(e, el){
-  el.classList.remove("dragging");
-  document.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
-  dashDragSrc = null;
-}
+// Legacy inline handlers (kept for compatibility but initDashDrag overrides)
+function dashDragStart(e,el){}
+function dashDragOver(e,el){ e.preventDefault(); }
+function dashDrop(e,el){ e.preventDefault(); }
+function dashDragEnd(e,el){}
 
 function toggleDashEditMode(){
   const cur = sessionStorage.getItem("dashEditMode")==="true";
