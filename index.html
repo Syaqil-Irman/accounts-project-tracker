@@ -65,6 +65,26 @@
   .login-err { background:#fff5f5; border:1px solid #fed7d7; color:#c53030; border-radius:8px; padding:9px 14px; font-size:0.82rem; margin-bottom:14px; text-align:center; }
   .logout-btn { background:rgba(255,255,255,0.15); border:none; color:white; border-radius:6px; padding:3px 10px; font-size:0.72rem; cursor:pointer; margin-left:4px; }
   .logout-btn:hover { background:rgba(255,255,255,0.25); }
+  /* Dashboard drag & drop */
+  .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; cursor:grab; transition:box-shadow .2s, transform .2s; position:relative; }
+  .dash-module:active { cursor:grabbing; }
+  .dash-module.dragging { opacity:0.4; transform:scale(0.98); box-shadow:0 8px 24px rgba(0,0,0,0.15); }
+  .dash-module.drag-over { box-shadow:0 0 0 2px #2b6cb0; }
+  .dash-module.hidden-module { display:none; }
+  .drag-handle { display:flex; align-items:center; gap:6px; padding:13px 18px; border-bottom:1px solid #e2e8f0; justify-content:space-between; }
+  .drag-handle h3 { font-size:0.88rem; font-weight:700; color:#2d3748; }
+  .drag-handle-icon { color:#cbd5e0; cursor:grab; font-size:1rem; padding:2px 4px; }
+  .drag-handle-icon:hover { color:#718096; }
+  .dash-module-body { padding:16px 18px; }
+  .dash-edit-btn { font-size:0.72rem; padding:3px 10px; border-radius:7px; border:1px solid #2b6cb0; background:white; color:#2b6cb0; cursor:pointer; font-weight:600; }
+  .dash-edit-btn.active { background:#2b6cb0; color:white; }
+  .module-toggle { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; background:#f7fafc; margin-bottom:8px; font-size:0.82rem; color:#2d3748; cursor:pointer; }
+  .module-toggle:hover { background:#edf2f7; }
+  .toggle-switch { width:32px; height:18px; border-radius:9px; background:#e2e8f0; position:relative; transition:background .2s; flex-shrink:0; }
+  .toggle-switch.on { background:#2b6cb0; }
+  .toggle-switch::after { content:""; position:absolute; width:14px; height:14px; border-radius:50%; background:white; top:2px; left:2px; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-switch.on::after { left:16px; }
   /* Escalation */
   .esc-badge { display:inline-flex; align-items:center; gap:4px; background:#fff5f5; color:#c53030; border:1px solid #fed7d7; border-radius:8px; padding:2px 7px; font-size:0.68rem; font-weight:700; }
   .esc-badge.info { background:#ebf8ff; color:#2b6cb0; border-color:#bee3f8; }
@@ -806,60 +826,117 @@ function renderDashboard(){
   const now=new Date();
   const today=todayStr();
 
-  // Task stats
-  const total=tasks.length;
-  const done=tasks.filter(t=>t.status==="Done").length;
-  const inProg=tasks.filter(t=>t.status==="In Progress").length;
-  const blocked=tasks.filter(t=>t.status==="Blocked").length;
-  const overdue=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length;
-  const dueSoon=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)>=0&&daysUntil(t.due)<=3).length;
-  const pct=total?Math.round(done/total*100):0;
-
-  // Meeting stats
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const total=tasks.length, done=tasks.filter(t=>t.status==="Done").length,
+        inProg=tasks.filter(t=>t.status==="In Progress").length,
+        blocked=tasks.filter(t=>t.status==="Blocked").length,
+        overdue=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length,
+        dueSoon=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)>=0&&daysUntil(t.due)<=3).length,
+        pct=total?Math.round(done/total*100):0;
   const upcomingMtgs=meetings.filter(m=>new Date(m.meeting_date)>=now);
   const nextMtg=upcomingMtgs[0]||null;
   const pendingActions=actionItems.filter(a=>a.status==="pending").length;
   const doneActions=actionItems.filter(a=>a.status==="done").length;
-
-  // Per-member stats (admin only)
+  const today2=new Date(); today2.setHours(0,0,0,0);
+  const upPay=payments.filter(p=>p.status!=="paid").sort((a,b)=>new Date(a.next_due)-new Date(b.next_due)).slice(0,6);
+  const overduePayCount=payments.filter(p=>{const d=new Date(p.next_due);d.setHours(0,0,0,0);return d<today2&&p.status!=="paid";}).length;
+  const dueSoon7Pay=payments.filter(p=>{const d=new Date(p.next_due);d.setHours(0,0,0,0);const diff=Math.round((d-today2)/86400000);return diff>=0&&diff<=7&&p.status!=="paid";}).length;
   const memberStats=Object.keys(TEAM).map(name=>{
     const mine=tasks.filter(t=>t.owner===name);
     const myDone=mine.filter(t=>t.status==="Done").length;
-    const myBlocked=mine.filter(t=>t.status==="Blocked").length;
-    const myOverdue=mine.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length;
-    const myPct=mine.length?Math.round(myDone/mine.length*100):0;
-    return{name,total:mine.length,done:myDone,blocked:myBlocked,overdue:myOverdue,pct:myPct};
+    return{name,total:mine.length,done:myDone,blocked:mine.filter(t=>t.status==="Blocked").length,overdue:mine.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length,pct:mine.length?Math.round(myDone/mine.length*100):0};
   });
-
-  // Recent activity (last 5 deleted + recently done)
-  const recentDone=tasks.filter(t=>t.status==="Done").slice(-3).reverse();
-  const recentDeleted=deleteLog.slice(0,3);
-
-  // Overdue tasks list
   const overdueList=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,5);
-
-  // Upcoming tasks (due in 7 days)
   const upcoming7=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)>=0&&daysUntil(t.due)<=7).sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,5);
 
-  el.innerHTML=`
-    <!-- Welcome banner -->
-    <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);border-radius:14px;padding:24px 28px;color:white;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-      <div>
-        <div style="font-size:1.3rem;font-weight:800;margin-bottom:4px;">Good ${now.getHours()<12?"morning":now.getHours()<17?"afternoon":"evening"}, ${esc(currentUser)}! 👋</div>
-        <div style="font-size:0.85rem;opacity:0.85;">Here's your team overview for ${now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
-      </div>
-      ${nextMtg?`<div style="background:rgba(255,255,255,0.12);border-radius:10px;padding:12px 18px;text-align:center;">
-        <div style="font-size:0.7rem;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Next Meeting</div>
-        <div style="font-size:0.88rem;font-weight:700;">${esc(nextMtg.title)}</div>
-        <div style="font-size:0.76rem;opacity:0.85;margin-top:2px;">📅 ${fmtDT(nextMtg.meeting_date)}</div>
-      </div>`:`<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 18px;text-align:center;opacity:0.7;">
-        <div style="font-size:0.7rem;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Next Meeting</div>
-        <div style="font-size:0.85rem;">None scheduled</div>
-      </div>`}
-    </div>
+  // ── Module definitions ─────────────────────────────────────────────────────
+  const MODULES = {
+    welcome:    { title:"👋 Welcome",          size:"full" },
+    kpis:       { title:"📊 KPI Summary",      size:"full" },
+    overdue:    { title:"🚨 Overdue Tasks",     size:"half" },
+    dueweek:    { title:"📆 Due This Week",     size:"half" },
+    team:       { title:"👥 Team Performance", size:"half", adminOnly:true },
+    actions:    { title:"✅ Action Items",      size:"half" },
+    meetings:   { title:"🗓️ Upcoming Meetings", size:"full" },
+    payments:   { title:"💳 Upcoming Payments", size:"full", permCheck:"payments" },
+  };
 
-    <!-- Summary KPI row -->
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px;">
+  // Load saved layout order + visibility
+  let layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||"null");
+  if(!layout){ layout={ order:Object.keys(MODULES), hidden:[] }; }
+  // Ensure all modules exist in order
+  Object.keys(MODULES).forEach(k=>{ if(!layout.order.includes(k)) layout.order.push(k); });
+  const saveLayout=()=>sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
+
+  // Filter modules user can see
+  const visibleOrder = layout.order.filter(k=>{
+    if(!MODULES[k]) return false;
+    if(MODULES[k].adminOnly && !(USERS[currentUser]?.superAdmin||USERS[currentUser]?.admin)) return false;
+    if(MODULES[k].permCheck && !can(currentUser,MODULES[k].permCheck,"view")) return false;
+    return true;
+  });
+
+  // ── Module content builders ────────────────────────────────────────────────
+  function buildModule(key){
+    const isHidden = layout.hidden.includes(key);
+    const m = MODULES[key]; if(!m) return "";
+    const innerHTML = buildModuleInner(key);
+    return `<div class="dash-module${isHidden?" hidden-module":""}" data-key="${key}" draggable="true"
+      ondragstart="dashDragStart(event,this)"
+      ondragover="dashDragOver(event,this)"
+      ondrop="dashDrop(event,this)"
+      ondragend="dashDragEnd(event,this)"
+      style="${m.size==="full"?"grid-column:1/-1":""}">
+      <div class="drag-handle">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="drag-handle-icon" title="Drag to reorder">⠿</span>
+          <h3>${m.title}</h3>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${key==="welcome"?"":buildViewAllBtn(key)}
+        </div>
+      </div>
+      <div class="dash-module-body">${innerHTML}</div>
+    </div>`;
+  }
+
+  function buildViewAllBtn(key){
+    const map={overdue:"tasks",dueweek:"tasks",team:"tasks",actions:"meeting",meetings:"meeting",payments:"payments",kpis:""};
+    const tab=map[key]||"";
+    return tab?`<button onclick="switchTab('${tab}')" style="font-size:0.72rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>`:"";
+  }
+
+  function buildModuleInner(key){
+    if(key==="welcome") return buildWelcome();
+    if(key==="kpis") return buildKPIs();
+    if(key==="overdue") return buildOverdue();
+    if(key==="dueweek") return buildDueWeek();
+    if(key==="team") return buildTeam();
+    if(key==="actions") return buildActions();
+    if(key==="meetings") return buildMeetings();
+    if(key==="payments") return buildPayments();
+    return "";
+  }
+
+  function buildWelcome(){
+    return `<div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);border-radius:10px;padding:20px 24px;color:white;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;margin-bottom:4px;">Good ${now.getHours()<12?"morning":now.getHours()<17?"afternoon":"evening"}, ${esc(currentUser)}! 👋</div>
+        <div style="font-size:0.83rem;opacity:0.85;">${now.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+      </div>
+      ${nextMtg?`<div style="background:rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.68rem;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Next Meeting</div>
+        <div style="font-size:0.85rem;font-weight:700;">${esc(nextMtg.title)}</div>
+        <div style="font-size:0.74rem;opacity:0.85;margin-top:2px;">📅 ${fmtDT(nextMtg.meeting_date)}</div>
+      </div>`:`<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;text-align:center;opacity:0.7;">
+        <div style="font-size:0.68rem;opacity:0.75;text-transform:uppercase;margin-bottom:3px;">Next Meeting</div>
+        <div style="font-size:0.83rem;">None scheduled</div>
+      </div>`}
+    </div>`;
+  }
+
+  function buildKPIs(){
+    return `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;">
       ${[
         {label:"Total Tasks",val:total,color:"#2b6cb0",valCol:"#1a365d"},
         {label:"Completed",val:pct+"%",color:"#38a169",valCol:"#276749"},
@@ -867,208 +944,229 @@ function renderDashboard(){
         {label:"Blocked",val:blocked,color:"#e53e3e",valCol:"#822727"},
         {label:"Due Soon",val:dueSoon,color:"#6b46c1",valCol:"#44337a"},
         {label:"Action Items",val:pendingActions,color:"#c05621",valCol:"#7b341e"},
-      ].map(k=>`<div style="background:white;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.07);border-top:3px solid ${k.color};">
-        <div style="font-size:0.65rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${k.label}</div>
-        <div style="font-size:1.5rem;font-weight:800;color:${k.valCol};line-height:1;">${k.val}</div>
+      ].map(k=>`<div style="background:#f7fafc;border-radius:9px;padding:12px;text-align:center;border-top:3px solid ${k.color};">
+        <div style="font-size:0.62rem;color:#718096;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">${k.label}</div>
+        <div style="font-size:1.4rem;font-weight:800;color:${k.valCol};">${k.val}</div>
       </div>`).join("")}
-    </div>
+    </div>`;
+  }
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+  function buildOverdue(){
+    if(overdueList.length===0) return `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">🎉 No overdue tasks!</p>`;
+    return overdueList.map(t=>{
+      const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f7fafc;">
+        <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+        <span style="flex:1;font-size:0.82rem;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</span>
+        <span style="font-size:0.7rem;font-weight:700;background:#fff5f5;color:#c53030;padding:2px 7px;border-radius:10px;white-space:nowrap;">${Math.abs(daysUntil(t.due))}d ago</span>
+      </div>`;
+    }).join("");
+  }
 
-      <!-- Overdue tasks -->
-      <div class="card">
-        <div class="card-header" style="background:#fff5f5;">
-          <h2 style="color:#c53030;">🚨 Overdue Tasks (${overdue})</h2>
-          <button onclick="switchTab('tasks')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
+  function buildDueWeek(){
+    if(upcoming7.length===0) return `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">Nothing due in 7 days.</p>`;
+    return upcoming7.map(t=>{
+      const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
+      const d=daysUntil(t.due);
+      const label=d===0?"Today":d===1?"Tomorrow":`${d}d left`;
+      const[bg,col]=d<=1?["#fff5f5","#c53030"]:d<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f7fafc;">
+        <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+        <span style="flex:1;font-size:0.82rem;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</span>
+        <span style="font-size:0.7rem;font-weight:700;background:${bg};color:${col};padding:2px 7px;border-radius:10px;white-space:nowrap;">${label}</span>
+      </div>`;
+    }).join("");
+  }
+
+  function buildTeam(){
+    const maxT=Math.max(...memberStats.map(s=>s.total),1);
+    return memberStats.map(s=>{
+      const m=TEAM[s.name];
+      return `<div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <div style="width:26px;height:26px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.63rem;font-weight:700;color:white;">${m.initials}</div>
+          <div style="flex:1;"><div style="font-size:0.83rem;font-weight:700;color:#2d3748;">${esc(s.name)}</div>
+          <div style="font-size:0.7rem;color:#718096;">${s.total} tasks · ${s.done} done · ${s.overdue} overdue</div></div>
+          <div style="font-size:1rem;font-weight:800;color:${m.color};">${s.pct}%</div>
         </div>
-        <div class="card-body">
-          ${overdueList.length===0
-            ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">🎉 No overdue tasks!</p>`
-            :overdueList.map(t=>{
-              const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
-              const d=Math.abs(daysUntil(t.due));
-              return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f7fafc;">
-                <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
-                <span style="flex:1;font-size:0.82rem;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
-                <span style="font-size:0.7rem;font-weight:700;background:#fff5f5;color:#c53030;padding:2px 7px;border-radius:10px;white-space:nowrap;">${d}d ago</span>
-              </div>`;
-            }).join("")
-          }
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;">
+          <div style="width:${s.pct}%;height:100%;border-radius:4px;background:${m.color};transition:width .5s;"></div>
         </div>
+      </div>`;
+    }).join("");
+  }
+
+  function buildActions(){
+    if(actionItems.length===0) return `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No action items yet.</p>`;
+    return `<div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;background:#f0fff4;border-radius:9px;padding:10px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:800;color:#276749;">${doneActions}</div>
+        <div style="font-size:0.7rem;color:#38a169;font-weight:600;">Done</div>
       </div>
-
-      <!-- Due this week -->
-      <div class="card">
-        <div class="card-header" style="background:#fefcbf20;">
-          <h2>📆 Due This Week (${upcoming7.length})</h2>
-          <button onclick="switchTab('tasks')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
-        </div>
-        <div class="card-body">
-          ${upcoming7.length===0
-            ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">Nothing due in the next 7 days.</p>`
-            :upcoming7.map(t=>{
-              const m=TEAM[t.owner]||{initials:"??",color:"#718096"};
-              const d=daysUntil(t.due);
-              const label=d===0?"Today":d===1?"Tomorrow":`${d}d left`;
-              const[bg,col]=d<=1?["#fff5f5","#c53030"]:d<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
-              return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f7fafc;">
-                <div style="width:18px;height:18px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
-                <span style="flex:1;font-size:0.82rem;color:#2d3748;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</span>
-                <span style="font-size:0.7rem;font-weight:700;background:${bg};color:${col};padding:2px 7px;border-radius:10px;white-space:nowrap;">${label}</span>
-              </div>`;
-            }).join("")
-          }
-        </div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:${isAdmin()?"1fr 1fr":"1fr"};gap:18px;margin-bottom:18px;">
-
-      ${isAdmin()?`
-      <!-- Team performance -->
-      <div class="card">
-        <div class="card-header"><h2>👥 Team Performance</h2></div>
-        <div class="card-body">
-          ${memberStats.map(s=>{
-            const m=TEAM[s.name];
-            return `<div style="margin-bottom:16px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                <div style="width:28px;height:28px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:white;">${m.initials}</div>
-                <div style="flex:1;">
-                  <div style="font-size:0.85rem;font-weight:700;color:#2d3748;">${esc(s.name)}</div>
-                  <div style="font-size:0.72rem;color:#718096;">${s.total} tasks · ${s.done} done · ${s.overdue} overdue · ${s.blocked} blocked</div>
-                </div>
-                <div style="font-size:1.1rem;font-weight:800;color:${m.color};">${s.pct}%</div>
-              </div>
-              <div style="background:#e2e8f0;border-radius:4px;height:7px;">
-                <div style="width:${s.pct}%;height:100%;border-radius:4px;background:${m.color};transition:width .5s;"></div>
-              </div>
-            </div>`;
-          }).join("")}
-        </div>
-      </div>`:""}
-
-      <!-- Action items summary -->
-      <div class="card">
-        <div class="card-header"><h2>✅ Action Items Summary</h2>
-          <button onclick="switchTab('meeting')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
-        </div>
-        <div class="card-body">
-          ${actionItems.length===0
-            ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No action items yet.</p>`
-            :`<div style="display:flex;gap:16px;margin-bottom:16px;">
-                <div style="flex:1;background:#f0fff4;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:1.5rem;font-weight:800;color:#276749;">${doneActions}</div>
-                  <div style="font-size:0.72rem;color:#38a169;font-weight:600;">Done</div>
-                </div>
-                <div style="flex:1;background:#fefcbf;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:1.5rem;font-weight:800;color:#744210;">${pendingActions}</div>
-                  <div style="font-size:0.72rem;color:#d69e2e;font-weight:600;">Pending</div>
-                </div>
-              </div>
-              ${actionItems.filter(a=>a.status==="pending").slice(0,4).map(a=>{
-                const m=TEAM[a.assignee]||{initials:"??",color:"#718096"};
-                return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f7fafc;font-size:0.81rem;">
-                  <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
-                  <span style="flex:1;color:#2d3748;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.task_name)}</span>
-                  <span style="font-size:0.7rem;background:#fefcbf;color:#744210;padding:2px 7px;border-radius:10px;font-weight:600;">Pending</span>
-                </div>`;
-              }).join("")}`
-          }
-        </div>
+      <div style="flex:1;background:#fefcbf;border-radius:9px;padding:10px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:800;color:#744210;">${pendingActions}</div>
+        <div style="font-size:0.7rem;color:#d69e2e;font-weight:600;">Pending</div>
       </div>
     </div>
+    ${actionItems.filter(a=>a.status==="pending").slice(0,4).map(a=>{
+      const m=TEAM[a.assignee]||{initials:"??",color:"#718096"};
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f7fafc;font-size:0.81rem;">
+        <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
+        <span style="flex:1;color:#2d3748;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.task_name)}</span>
+        <span style="font-size:0.68rem;background:#fefcbf;color:#744210;padding:2px 6px;border-radius:8px;font-weight:600;">Pending</span>
+      </div>`;
+    }).join("")}`;
+  }
 
-    <!-- Upcoming meetings strip -->
-    ${upcomingMtgs.length>0?`
-    <div class="card">
-      <div class="card-header"><h2>🗓️ Upcoming Meetings</h2>
-        <button onclick="switchTab('meeting')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
+  function buildMeetings(){
+    if(upcomingMtgs.length===0) return `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No upcoming meetings.</p>`;
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
+      ${upcomingMtgs.slice(0,4).map(m=>{
+        const d=new Date(m.meeting_date);
+        const diff=Math.round((d-now)/60000);
+        const label=diff<60?`In ${diff}m`:diff<1440?`In ${Math.floor(diff/60)}h`:` In ${Math.floor(diff/1440)}d`;
+        const attendeeList=(m.attendees||"").split(",").filter(Boolean);
+        return `<div style="background:#f7fafc;border-radius:10px;padding:12px;border-left:3px solid #2b6cb0;">
+          <div style="font-weight:700;font-size:0.83rem;color:#1a365d;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.title)}</div>
+          <div style="font-size:0.73rem;color:#718096;margin-bottom:7px;">📅 ${fmtDT(m.meeting_date)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;gap:3px;">${attendeeList.map(a=>{const tm=TEAM[a];return tm?`<div style="width:17px;height:17px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.53rem;font-weight:700;color:white;" title="${esc(a)}">${tm.initials}</div>`:"";}).join("")}</div>
+            <span style="font-size:0.7rem;font-weight:700;background:#ebf8ff;color:#2b6cb0;padding:2px 7px;border-radius:9px;">${label}</span>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  function buildPayments(){
+    if(upPay.length===0) return `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No upcoming payments scheduled.</p>`;
+    return `<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:80px;background:#fff5f5;border-radius:9px;padding:10px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:800;color:#c53030;">${overduePayCount}</div>
+        <div style="font-size:0.7rem;color:#e53e3e;font-weight:600;">Overdue</div>
       </div>
-      <div class="card-body">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
-          ${upcomingMtgs.slice(0,4).map(m=>{
-            const d=new Date(m.meeting_date);
-            const diff=Math.round((d-now)/60000);
-            const label=diff<60?`In ${diff}m`:diff<1440?`In ${Math.floor(diff/60)}h ${diff%60}m`:`In ${Math.floor(diff/1440)}d`;
-            const attendeeList=(m.attendees||"").split(",").filter(Boolean);
-            return `<div style="background:#f7fafc;border-radius:10px;padding:14px;border-left:3px solid #2b6cb0;">
-              <div style="font-weight:700;font-size:0.85rem;color:#1a365d;margin-bottom:4px;">${esc(m.title)}</div>
-              <div style="font-size:0.75rem;color:#718096;margin-bottom:8px;">📅 ${fmtDT(m.meeting_date)}</div>
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="display:flex;gap:3px;">
-                  ${attendeeList.map(a=>{const tm=TEAM[a];return tm?`<div style="width:18px;height:18px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;" title="${esc(a)}">${tm.initials}</div>`:"";}).join("")}
-                </div>
-                <span style="font-size:0.72rem;font-weight:700;background:#ebf8ff;color:#2b6cb0;padding:2px 8px;border-radius:10px;">${label}</span>
-              </div>
-            </div>`;
-          }).join("")}
-        </div>
+      <div style="flex:1;min-width:80px;background:#fefcbf;border-radius:9px;padding:10px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:800;color:#744210;">${dueSoon7Pay}</div>
+        <div style="font-size:0.7rem;color:#d69e2e;font-weight:600;">Due this week</div>
+      </div>
+      <div style="flex:1;min-width:80px;background:#f0fff4;border-radius:9px;padding:10px;text-align:center;">
+        <div style="font-size:1.4rem;font-weight:800;color:#276749;">${payments.filter(p=>p.status==="paid").length}</div>
+        <div style="font-size:0.7rem;color:#38a169;font-weight:600;">Paid</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
+      ${upPay.slice(0,4).map(p=>{
+        const due=new Date(p.next_due); due.setHours(0,0,0,0);
+        const diff=Math.round((due-today2)/86400000);
+        const[bg,col]=diff<0?["#fff5f5","#c53030"]:diff<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
+        const label=diff<0?`${Math.abs(diff)}d overdue`:diff===0?"Today":diff===1?"Tomorrow":`${diff}d`;
+        const cc=PAYMENT_COLORS[p.type]||"#718096";
+        const m=TEAM[p.assigned_to]||{initials:"??",color:"#718096"};
+        return `<div style="background:#f7fafc;border-radius:9px;padding:11px;border-left:3px solid ${cc};">
+          <div style="font-weight:700;font-size:0.82rem;color:#1a365d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">${esc(p.name)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}18;padding:1px 6px;border-radius:7px;">${esc(p.type)}</span>
+            <span style="font-size:0.7rem;font-weight:700;background:${bg};color:${col};padding:2px 7px;border-radius:9px;">${label}</span>
+          </div>
+          ${p.amount?`<div style="font-size:0.78rem;font-weight:700;color:#2d3748;margin-top:4px;">${esc(p.currency||"SGD")} ${Number(p.amount).toLocaleString()}</div>`:""}
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const isEditMode = sessionStorage.getItem("dashEditMode")==="true";
+
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <h2 style="font-size:1rem;font-weight:700;color:#2d3748;">Dashboard</h2>
+        <p style="font-size:0.78rem;color:#a0aec0;margin-top:2px;">${isEditMode?"Drag modules to reorder · Toggle to show/hide":"Your personal overview"}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${isEditMode?`<button onclick="dashResetLayout()" style="font-size:0.75rem;padding:5px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f7fafc;color:#718096;cursor:pointer;">Reset layout</button>`:""}
+        <button class="dash-edit-btn ${isEditMode?"active":""}" onclick="toggleDashEditMode()">${isEditMode?"✓ Done":"✏️ Customise"}</button>
+      </div>
+    </div>
+
+    ${isEditMode?`
+    <!-- Module visibility toggles -->
+    <div style="background:white;border-radius:12px;padding:16px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+      <div style="font-size:0.8rem;font-weight:700;color:#2d3748;margin-bottom:10px;">Show / Hide Modules</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+        ${visibleOrder.map(key=>{
+          const m=MODULES[key]; if(!m) return "";
+          const isHidden=layout.hidden.includes(key);
+          return `<div class="module-toggle" onclick="dashToggleVisibility('${key}')">
+            <div class="toggle-switch ${isHidden?"":"on"}"></div>
+            <span>${m.title}</span>
+          </div>`;
+        }).join("")}
       </div>
     </div>`:""}
 
-    <!-- Payment schedule summary -->
-    ${can(currentUser,'payments','view') ? `
-    <div class="card" style="margin-top:18px;">
-      <div class="card-header">
-        <h2>💳 Upcoming Payments</h2>
-        <button onclick="switchTab('payments')" style="font-size:0.75rem;color:#2b6cb0;background:none;border:none;cursor:pointer;font-weight:600;">View all →</button>
-      </div>
-      <div class="card-body">
-        ${(()=>{
-          const today2=new Date(); today2.setHours(0,0,0,0);
-          const upPay=payments.filter(p=>p.status!=="paid").sort((a,b)=>new Date(a.next_due)-new Date(b.next_due)).slice(0,6);
-          const overdueCount=payments.filter(p=>{const d=new Date(p.next_due);d.setHours(0,0,0,0);return d<today2&&p.status!=="paid";}).length;
-          const dueSoon7=payments.filter(p=>{const d=new Date(p.next_due);d.setHours(0,0,0,0);const diff=Math.round((d-today2)/86400000);return diff>=0&&diff<=7&&p.status!=="paid";}).length;
-          if(upPay.length===0) return `<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No upcoming payments scheduled.</p>`;
-          return `
-            <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-              <div style="flex:1;min-width:100px;background:#fff5f5;border-radius:10px;padding:12px;text-align:center;">
-                <div style="font-size:1.4rem;font-weight:800;color:#c53030;">${overdueCount}</div>
-                <div style="font-size:0.72rem;color:#e53e3e;font-weight:600;">Overdue</div>
-              </div>
-              <div style="flex:1;min-width:100px;background:#fefcbf;border-radius:10px;padding:12px;text-align:center;">
-                <div style="font-size:1.4rem;font-weight:800;color:#744210;">${dueSoon7}</div>
-                <div style="font-size:0.72rem;color:#d69e2e;font-weight:600;">Due this week</div>
-              </div>
-              <div style="flex:1;min-width:100px;background:#f0fff4;border-radius:10px;padding:12px;text-align:center;">
-                <div style="font-size:1.4rem;font-weight:800;color:#276749;">${payments.filter(p=>p.status==="paid").length}</div>
-                <div style="font-size:0.72rem;color:#38a169;font-weight:600;">Paid</div>
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
-              ${upPay.map(p=>{
-                const due=new Date(p.next_due); due.setHours(0,0,0,0);
-                const diff=Math.round((due-today2)/86400000);
-                const[bg,col]=diff<0?["#fff5f5","#c53030"]:diff<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
-                const label=diff<0?`${Math.abs(diff)}d overdue`:diff===0?"Today":diff===1?"Tomorrow":`${diff}d left`;
-                const cc=PAYMENT_COLORS[p.type]||"#718096";
-                const m=TEAM[p.assigned_to]||{initials:"??",color:"#718096"};
-                return `<div style="background:#f7fafc;border-radius:10px;padding:12px;border-left:3px solid ${cc};display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-                  <div style="flex:1;min-width:0;">
-                    <div style="font-weight:700;font-size:0.83rem;color:#1a365d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.name)}</div>
-                    <div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap;">
-                      <span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}18;padding:1px 6px;border-radius:7px;">${esc(p.type)}</span>
-                      <span style="font-size:0.7rem;color:#718096;">${esc(p.recurrence)}</span>
-                      ${p.amount?`<span style="font-size:0.75rem;font-weight:700;color:#2d3748;">${esc(p.currency||"SGD")} ${Number(p.amount).toLocaleString()}</span>`:""}
-                    </div>
-                    <div style="display:flex;align-items:center;gap:5px;margin-top:5px;">
-                      <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;flex-shrink:0;">${m.initials}</div>
-                      <span style="font-size:0.72rem;color:#718096;">${esc(p.assigned_to||"-")}</span>
-                    </div>
-                  </div>
-                  <div style="text-align:right;flex-shrink:0;">
-                    <span style="font-size:0.7rem;font-weight:700;background:${bg};color:${col};padding:2px 8px;border-radius:10px;white-space:nowrap;">${label}</span>
-                    <div style="font-size:0.7rem;color:#a0aec0;margin-top:4px;">${fmtDate(p.next_due)}</div>
-                  </div>
-                </div>`;
-              }).join("")}
-            </div>`;
-        })()}
-      </div>
-    </div>` : ""}
+    <div class="dash-grid" id="dash-grid">
+      ${visibleOrder.map(key=>buildModule(key)).join("")}
+    </div>
   `;
 }
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+let dashDragSrc = null;
+
+function dashDragStart(e, el){
+  dashDragSrc = el;
+  el.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+}
+
+function dashDragOver(e, el){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  document.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
+  if(el !== dashDragSrc) el.classList.add("drag-over");
+}
+
+function dashDrop(e, el){
+  e.preventDefault();
+  if(!dashDragSrc || dashDragSrc===el) return;
+  const srcKey = dashDragSrc.dataset.key;
+  const tgtKey = el.dataset.key;
+  const layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||`{"order":${JSON.stringify(Object.keys({welcome:1,kpis:1,overdue:1,dueweek:1,team:1,actions:1,meetings:1,payments:1}))},"hidden":[]}`);
+  const si = layout.order.indexOf(srcKey);
+  const ti = layout.order.indexOf(tgtKey);
+  if(si>-1&&ti>-1){ layout.order.splice(si,1); layout.order.splice(ti,0,srcKey); }
+  sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
+  renderDashboard();
+}
+
+function dashDragEnd(e, el){
+  el.classList.remove("dragging");
+  document.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
+  dashDragSrc = null;
+}
+
+function toggleDashEditMode(){
+  const cur = sessionStorage.getItem("dashEditMode")==="true";
+  sessionStorage.setItem("dashEditMode", (!cur).toString());
+  renderDashboard();
+}
+
+function dashToggleVisibility(key){
+  const layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||`{"order":[],"hidden":[]}`);
+  const idx = layout.hidden.indexOf(key);
+  if(idx>-1) layout.hidden.splice(idx,1);
+  else layout.hidden.push(key);
+  sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
+  renderDashboard();
+}
+
+function dashResetLayout(){
+  sessionStorage.removeItem(`dash_layout_${currentUser}`);
+  renderDashboard();
+}
+
+
 
 
 // ── Payments ──────────────────────────────────────────────────────────────────
