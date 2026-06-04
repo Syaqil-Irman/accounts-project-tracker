@@ -112,6 +112,14 @@
   <div id="tab-dashboard" style="display:none;">
     <div style="padding:20px 28px 32px;" id="dashboard-content"></div>
   </div>
+  <!-- Payments tab -->
+  <div id="tab-payments" style="display:none;">
+    <div id="payments-content" style="padding:20px 28px 32px;"></div>
+  </div>
+  <!-- Security tab -->
+  <div id="tab-security" style="display:none;">
+    <div id="security-content" style="padding:20px 28px 32px;"></div>
+  </div>
   <!-- Meeting tab -->
   <div id="tab-meeting" style="display:none;">
     <div class="meeting-grid">
@@ -119,7 +127,7 @@
       <div class="card">
         <div class="card-header">
           <h2>📅 Upcoming Meetings</h2>
-          <button class="btn btn-primary btn-sm" onclick="openMeetingModal()">+ New Meeting</button>
+          ${can(currentUser,'meetings','add')?`<button class="btn btn-primary btn-sm" onclick="openMeetingModal()">+ New Meeting</button>`:""}
         </div>
         <div class="card-body" id="meetings-list"></div>
       </div>
@@ -185,10 +193,30 @@
 const SUPABASE_URL = "https://skiovsgqmwlcpyroltlm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNraW92c2dxbXdsY3B5cm9sdGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTQzMjIsImV4cCI6MjA5NDA3MDMyMn0.85rqMwSyXtvCKVThU4ed1WxG6QkCpeEtQX0Fd632WHg";
 
+// ── Permissions ───────────────────────────────────────────────────────────────
+// Loaded from sessionStorage so super admin changes persist per session
+const DEFAULT_PERMISSIONS = {
+  Syaqil:    { tasks:{view:true,add:true,edit:true,del:true}, payments:{view:true,add:true,edit:true,del:true}, meetings:{view:true,add:true,edit:true,del:true}, dashboard:{view:true} },
+  Ulfah:     { tasks:{view:true,add:true,edit:true,del:false}, payments:{view:true,add:false,edit:false,del:false}, meetings:{view:true,add:true,edit:false,del:false}, dashboard:{view:true} },
+  Batrisyia: { tasks:{view:true,add:true,edit:true,del:false}, payments:{view:false,add:false,edit:false,del:false}, meetings:{view:true,add:false,edit:false,del:false}, dashboard:{view:true} },
+};
+
+function loadPermissions(){
+  try{ const s=sessionStorage.getItem("permissions"); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS)); }
+  catch(e){ return JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS)); }
+}
+function savePermissions(perms){ sessionStorage.setItem("permissions",JSON.stringify(perms)); }
+let PERMISSIONS = loadPermissions();
+
+function can(user, tab, action){
+  if(user==="Syaqil") return true; // Super admin always has full access
+  return PERMISSIONS[user]?.[tab]?.[action]||false;
+}
+
 const USERS = {
-  Syaqil:    { password:"Syaqil@2026",    role:"Accounts Executive", admin:true  },
-  Ulfah:     { password:"Ulfah@2026",     role:"Accounts Assistant", admin:true  },
-  Batrisyia: { password:"Batrisyia@2026", role:"Accounts Assistant", admin:false },
+  Syaqil:    { password:"Syaqil@2026",    role:"Accounts Executive", admin:true,  superAdmin:true  },
+  Ulfah:     { password:"Ulfah@2026",     role:"Accounts Assistant", admin:true,  superAdmin:false },
+  Batrisyia: { password:"Batrisyia@2026", role:"Accounts Assistant", admin:false, superAdmin:false },
 };
 const TEAM = {
   Syaqil:    { initials:"SQ", color:"#2b6cb0", pillBg:"#ebf8ff", pillText:"#2b6cb0" },
@@ -262,9 +290,14 @@ function switchTab(tab){
   document.getElementById("tab-dashboard").style.display=tab==="dashboard"?"block":"none";
   document.getElementById("tab-tasks").style.display=tab==="tasks"?"block":"none";
   document.getElementById("tab-meeting").style.display=tab==="meeting"?"block":"none";
+  document.getElementById("tab-payments").style.display=tab==="payments"?"block":"none";
+  document.getElementById("tab-security").style.display=tab==="security"?"block":"none";
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
-  document.getElementById("tab-btn-"+tab).classList.add("active");
+  const activeBtn=document.getElementById("tab-btn-"+tab);
+  if(activeBtn) activeBtn.classList.add("active");
   if(tab==="dashboard") renderDashboard();
+  if(tab==="payments"){ renderPaymentsCalendar(); renderPaymentsList(); checkPaymentAlerts(); }
+  if(tab==="security") renderSecurity();
 }
 
 // ── Static shell ──────────────────────────────────────────────────────────────
@@ -303,9 +336,11 @@ function buildStaticShell(){
     </div>
     <!-- Tab bar -->
     <div class="tab-bar">
-      <button class="tab-btn" id="tab-btn-dashboard" onclick="switchTab('dashboard')">🏠 Dashboard</button>
-      <button class="tab-btn active" id="tab-btn-tasks" onclick="switchTab('tasks')">📋 Tasks</button>
-      <button class="tab-btn" id="tab-btn-meeting" onclick="switchTab('meeting')">🤝 Meeting</button>
+      ${can(currentUser,'dashboard','view')?`<button class="tab-btn" id="tab-btn-dashboard" onclick="switchTab('dashboard')">🏠 Dashboard</button>`:""}
+      ${can(currentUser,'tasks','view')?`<button class="tab-btn active" id="tab-btn-tasks" onclick="switchTab('tasks')">📋 Tasks</button>`:""}
+      ${can(currentUser,'meetings','view')?`<button class="tab-btn" id="tab-btn-meeting" onclick="switchTab('meeting')">🤝 Meeting</button>`:""}
+      ${can(currentUser,'payments','view')?`<button class="tab-btn" id="tab-btn-payments" onclick="switchTab('payments')">💳 Payments</button>`:""}
+      ${USERS[currentUser]?.superAdmin?`<button class="tab-btn" id="tab-btn-security" onclick="switchTab('security')">🔐 Security</button>`:""}
     </div>`;
 
   buildFilterBar();
@@ -328,7 +363,7 @@ function buildStaticShell(){
       <option value="medium" selected>🟡 Medium</option>
       <option value="low">🟢 Low</option>
     </select>
-    <button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`;
+    ${can(currentUser,'tasks','add')?`<button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`:`<button class="btn" disabled style="background:#e2e8f0;color:#a0aec0;cursor:not-allowed;" title="No permission">+ Add</button>`}`;
 }
 
 // ── Filter bar ────────────────────────────────────────────────────────────────
@@ -373,9 +408,10 @@ function toggleFilter(filterId,value,checked){
 function resetFilters(){filterOwners.clear();filterStatuses.clear();filterCats.clear();renderTable();renderSidePanels();buildFilterBar();}
 
 function buildFilterBar(){
-  const ownerFilter=isAdmin()?buildCheckboxDropdown("owner","Owner",Object.keys(TEAM),filterOwners,o=>TEAM[o]?.color):"";
+  const ownerFilter=(USERS[currentUser]?.superAdmin||USERS[currentUser]?.admin)?buildCheckboxDropdown("owner","Owner",Object.keys(TEAM),filterOwners,o=>TEAM[o]?.color):"";
   const statusFilter=buildCheckboxDropdown("status","Status",STATUSES,filterStatuses,s=>STATUS_COLORS[s]);
   const catFilter=buildCheckboxDropdown("cat","Category",CATEGORIES,filterCats,c=>CAT_COLORS[c]);
+  const isAdminUser = USERS[currentUser]?.superAdmin||USERS[currentUser]?.admin;
   const hasAny=filterOwners.size>0||filterStatuses.size>0||filterCats.size>0;
   document.getElementById("filter-bar").innerHTML=`
     ${ownerFilter}${statusFilter}${catFilter}
@@ -386,7 +422,8 @@ function buildFilterBar(){
 // ── Task fetches ──────────────────────────────────────────────────────────────
 async function fetchTasks(silent=false){
   try{
-    tasks=await api(isAdmin()?"/tasks?order=created_at.asc":`/tasks?owner=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
+    const seeAllTasks = USERS[currentUser]?.superAdmin || USERS[currentUser]?.admin;
+    tasks=await api(seeAllTasks?"/tasks?order=created_at.asc":`/tasks?owner=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
     lastSync=new Date(); updateSyncLabel(); renderKPIs(); renderTable(); renderSidePanels(); showError(null);
     if(activeTab==="dashboard") renderDashboard();
   }catch(e){showError("Could not load tasks: "+e.message);}
@@ -394,7 +431,8 @@ async function fetchTasks(silent=false){
 
 async function fetchDeleteLog(){
   try{
-    const logs=await api(isAdmin()?"/delete_log?order=deleted_at.desc":`/delete_log?owner=eq.${encodeURIComponent(currentUser)}&order=deleted_at.desc`);
+    const seeAllLogs = USERS[currentUser]?.superAdmin || USERS[currentUser]?.admin;
+    const logs=await api(seeAllLogs?"/delete_log?order=deleted_at.desc":`/delete_log?owner=eq.${encodeURIComponent(currentUser)}&order=deleted_at.desc`);
     deleteLog=logs.map(l=>({...l,name:l.task_name,status:l.status_at_deletion,progress:l.progress_at_deletion,
       deletedAt:new Date(l.deleted_at).toLocaleString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})}));
     renderDeleteLog();
@@ -411,7 +449,7 @@ function renderKPIs(){
         overdue=tasks.filter(t=>t.status!=="Done"&&daysUntil(t.due)<0).length,
         pct=total?Math.round(done/total*100):0;
   document.getElementById("kpi-section").innerHTML=`
-    <div class="kpi" style="border-left:4px solid #2b6cb0;"><div class="label">Total Tasks</div><div class="value" style="color:#1a365d;">${total}</div><div class="sub">${isAdmin()?"across 3 members":"your tasks"}</div></div>
+    <div class="kpi" style="border-left:4px solid #2b6cb0;"><div class="label">Total Tasks</div><div class="value" style="color:#1a365d;">${total}</div><div class="sub">${(USERS[currentUser]?.superAdmin||USERS[currentUser]?.admin)?"across 3 members":"your tasks"}</div></div>
     <div class="kpi" style="border-left:4px solid #38a169;"><div class="label">Completed</div><div class="value" style="color:#276749;">${pct}%</div><div class="sub">${done} of ${total} tasks</div></div>
     <div class="kpi" style="border-left:4px solid #d69e2e;"><div class="label">Blocked</div><div class="value" style="color:#744210;">${blocked}</div><div class="sub">need attention</div></div>
     <div class="kpi" style="border-left:4px solid #e53e3e;"><div class="label">Overdue</div><div class="value" style="color:#822727;">${overdue}</div><div class="sub">past due date</div></div>`;
@@ -436,7 +474,7 @@ function renderTable(){
         <span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span>
       </div></td>
       <td style="font-size:0.76rem;color:${dueColor};white-space:nowrap;">${fmtDate(t.due)}</td>
-      <td><select class="status-sel" onchange="updateStatus('${t.id}',this.value)">${STATUSES.map(s=>`<option ${t.status===s?"selected":""}>${esc(s)}</option>`).join("")}</select></td>
+      <td>${can(currentUser,'tasks','edit')?`<select class="status-sel" onchange="updateStatus('${t.id}',this.value)">${STATUSES.map(s=>`<option ${t.status===s?"selected":""}>${esc(s)}</option>`).join("")}</select>`:`<span style="font-size:0.72rem;font-weight:600;color:${STATUS_COLORS[t.status]||'#718096'};background:${(STATUS_COLORS[t.status]||'#718096')+'18'};padding:2px 8px;border-radius:8px;">${esc(t.status)}</span>`}</td>
       <td><div style="display:flex;align-items:center;gap:6px;">
         <div style="background:#e2e8f0;border-radius:4px;height:6px;width:60px;flex-shrink:0;">
           <div style="width:${t.progress}%;height:100%;border-radius:4px;background:${barColor};transition:width .3s;"></div>
@@ -444,7 +482,7 @@ function renderTable(){
         <input type="number" min="0" max="100" value="${t.progress}" onchange="updateProgress('${t.id}',this.value)"
           style="width:38px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.7rem;padding:1px 4px;color:#718096;text-align:center;" />
       </div></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button></td>
+      <td>${can(currentUser,'tasks','del')?`<button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button>`:`<span style="color:#e2e8f0;font-size:0.8rem;" title="No permission">✕</span>`}</td>
     </tr>`;
   }).join("");
   document.getElementById("task-table-wrap").innerHTML=`<table><thead><tr><th>Pri</th><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -465,7 +503,7 @@ function renderSidePanels(){
   }
   document.getElementById("donut-legend").innerHTML=STATUSES.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.79rem;color:#4a5568;"><div style="width:10px;height:10px;border-radius:50%;background:${Object.values(STATUS_COLORS)[i]};flex-shrink:0;"></div>${esc(s)}<strong style="margin-left:auto;">${counts[i]}</strong></div>`).join("");
   const wc=document.getElementById("workload-card");
-  if(isAdmin()){
+  if(USERS[currentUser]?.superAdmin || USERS[currentUser]?.admin){
     const maxT=Math.max(...Object.keys(TEAM).map(n=>tasks.filter(t=>t.owner===n).length),1);
     wc.innerHTML=`<div class="card"><div class="card-header"><h2>Workload by Owner</h2></div><div class="card-body">${Object.entries(TEAM).map(([name,m])=>{
       const open=tasks.filter(t=>t.owner===name&&t.status!=="Done").length,tot=tasks.filter(t=>t.owner===name).length;
@@ -560,10 +598,13 @@ async function addTask(){
 // ── Meeting ───────────────────────────────────────────────────────────────────
 async function fetchMeetings(){
   try{
+    const seeAllMtg = USERS[currentUser]?.superAdmin || USERS[currentUser]?.admin;
     const data=await api("/meetings?order=meeting_date.asc");
-    meetings=data;
-    const acts=await api("/action_items?order=created_at.asc");
-    actionItems=acts;
+    // Filter meetings by attendee for non-admins
+    meetings = seeAllMtg ? data : data.filter(m=>(m.attendees||"").split(",").map(s=>s.trim()).includes(currentUser));
+    const allActs=await api("/action_items?order=created_at.asc");
+    // Filter action items by assignee for non-admins
+    actionItems = seeAllMtg ? allActs : allActs.filter(a=>a.assignee===currentUser);
     renderMeetings();renderActionItems();renderMeetingNotes();
     if(activeTab==="dashboard") renderDashboard();
   }catch(e){console.error("Meetings:",e.message);}
@@ -910,12 +951,649 @@ function renderDashboard(){
   `;
 }
 
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+let payments = [];
+let paymentAlerts = [];
+let calendarDate = new Date();
+let showPaymentModal = false;
+let editingPayment = null;
+
+const PAYMENT_TYPES = ["Vendor Payment","Payroll","Invoice","Rent/Utilities","Tax","Loan","Other"];
+const RECUR_OPTIONS = ["One-time","Daily","Weekly","Fortnightly","Monthly","Quarterly","Yearly","Custom"];
+const PAYMENT_COLORS = {"Vendor Payment":"#6b46c1","Payroll":"#c05621","Invoice":"#2b6cb0","Rent/Utilities":"#38a169","Tax":"#e53e3e","Loan":"#d69e2e","Other":"#718096"};
+
+async function fetchPayments(){
+  try{
+    const seeAllPay = USERS[currentUser]?.superAdmin || USERS[currentUser]?.admin;
+    const data = await api(seeAllPay?"/payments?order=next_due.asc":`/payments?assigned_to=eq.${encodeURIComponent(currentUser)}&order=next_due.asc`);
+    payments = data;
+    checkPaymentAlerts();
+    if(activeTab==="payments"){ renderPaymentsCalendar(); renderPaymentsList(); }
+    if(activeTab==="dashboard") renderDashboard();
+  }catch(e){ console.error("Payments:",e.message); }
+}
+
+function checkPaymentAlerts(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  paymentAlerts = payments.filter(p=>{
+    const due = new Date(p.next_due); due.setHours(0,0,0,0);
+    const diff = Math.round((due-today)/86400000);
+    return diff>=0 && diff<=p.reminder_days && p.status!=="paid";
+  });
+  renderAlertBanner();
+}
+
+function renderAlertBanner(){
+  let bar = document.getElementById("payment-alert-bar");
+  if(!bar){
+    const eb = document.getElementById("error-bar");
+    bar = document.createElement("div");
+    bar.id = "payment-alert-bar";
+    eb.after(bar);
+  }
+  if(paymentAlerts.length===0){ bar.innerHTML=""; return; }
+  bar.innerHTML=`<div style="background:#fffbeb;border-bottom:2px solid #f6e05e;padding:10px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:1rem;">🔔</span>
+    <div style="flex:1;">
+      <strong style="font-size:0.83rem;color:#744210;">Payment Reminders (${paymentAlerts.length})</strong>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+        ${paymentAlerts.map(p=>{
+          const due=new Date(p.next_due); due.setHours(0,0,0,0);
+          const today=new Date(); today.setHours(0,0,0,0);
+          const diff=Math.round((due-today)/86400000);
+          const label=diff===0?"Due today":diff===1?"Due tomorrow":`Due in ${diff}d`;
+          const col=diff<=1?"#c53030":"#744210";
+          return `<span style="font-size:0.78rem;color:${col};font-weight:600;">• ${esc(p.name)} <span style="opacity:0.7;">(${label})</span></span>`;
+        }).join("")}
+      </div>
+    </div>
+    <button onclick="switchTab('payments')" style="padding:4px 12px;border-radius:7px;border:1px solid #d69e2e;background:white;color:#744210;font-size:0.78rem;font-weight:600;cursor:pointer;">View →</button>
+    <button onclick="document.getElementById('payment-alert-bar').innerHTML=''" style="background:none;border:none;color:#a0aec0;cursor:pointer;font-size:1rem;">✕</button>
+  </div>`;
+}
+
+function renderPaymentsCalendar(){
+  const el = document.getElementById("payments-content"); if(!el) return;
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const monthName = calendarDate.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+
+  // Map payments to their due dates this month
+  const paymentsByDay = {};
+  payments.forEach(p=>{
+    // Get all occurrences in this month
+    const occurrences = getOccurrencesInMonth(p, year, month);
+    occurrences.forEach(day=>{
+      if(!paymentsByDay[day]) paymentsByDay[day]=[];
+      paymentsByDay[day].push(p);
+    });
+  });
+
+  const days = [];
+  for(let i=0;i<(firstDay===0?6:firstDay-1);i++) days.push(null);
+  for(let d=1;d<=daysInMonth;d++) days.push(d);
+
+  const calHTML = days.map(d=>{
+    if(!d) return `<div style="min-height:80px;"></div>`;
+    const isToday = d===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+    const dayPayments = paymentsByDay[d]||[];
+    const hasOverdue = dayPayments.some(p=>{ const due=new Date(year,month,d); due.setHours(0,0,0,0); return due<today&&p.status!=="paid"; });
+    return `<div style="min-height:80px;border:1px solid #e2e8f0;border-radius:8px;padding:6px;background:${isToday?"#ebf8ff":"white"};${hasOverdue?"border-color:#fed7d7;":""}" >
+      <div style="font-size:0.78rem;font-weight:${isToday?"800":"600"};color:${isToday?"#2b6cb0":"#4a5568"};margin-bottom:4px;">${d}</div>
+      ${dayPayments.map(p=>{
+        const cc=PAYMENT_COLORS[p.type]||"#718096";
+        const due=new Date(year,month,d); due.setHours(0,0,0,0);
+        const isPaid=p.status==="paid";
+        return `<div style="font-size:0.67rem;font-weight:600;color:${isPaid?"#a0aec0":cc};background:${isPaid?"#f7fafc":cc+"18"};border-radius:5px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:${isPaid?"line-through":"none"};" title="${esc(p.name)}">
+          ${isPaid?"✓ ":""}${esc(p.name)}
+        </div>`;
+      }).join("")}
+    </div>`;
+  }).join("");
+
+  // Upcoming payments list
+  const upcoming = payments.filter(p=>p.status!=="paid").sort((a,b)=>new Date(a.next_due)-new Date(b.next_due)).slice(0,8);
+  const overduePayments = payments.filter(p=>{ const due=new Date(p.next_due); due.setHours(0,0,0,0); return due<today&&p.status!=="paid"; });
+
+  el.innerHTML=`
+    <!-- Alert strip for overdue -->
+    ${overduePayments.length>0?`<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:1.1rem;">⚠️</span>
+      <div><strong style="font-size:0.83rem;color:#c53030;">${overduePayments.length} overdue payment${overduePayments.length>1?"s":""}</strong>
+      <div style="font-size:0.78rem;color:#e53e3e;margin-top:2px;">${overduePayments.map(p=>`${esc(p.name)} (${fmtDate(p.next_due)})`).join(" · ")}</div></div>
+    </div>`:""}
+
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start;">
+
+      <!-- Calendar -->
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <button onclick="calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);renderPaymentsCalendar();" style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">‹</button>
+            <h2>${monthName}</h2>
+            <button onclick="calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);renderPaymentsCalendar();" style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">›</button>
+          </div>
+          ${can(currentUser,'payments','add')?`<button onclick="openPaymentModal()" style="padding:6px 14px;border-radius:8px;border:none;background:#2b6cb0;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;">+ Schedule Payment</button>`:""}
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;">
+            ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>`<div style="text-align:center;font-size:0.7rem;font-weight:700;color:#718096;padding:4px 0;">${d}</div>`).join("")}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">${calHTML}</div>
+          <!-- Legend -->
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #f0f4f8;">
+            ${Object.entries(PAYMENT_COLORS).map(([type,color])=>`<div style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:#4a5568;"><div style="width:10px;height:10px;border-radius:3px;background:${color};"></div>${type}</div>`).join("")}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div>
+        <!-- Upcoming -->
+        <div class="card" style="margin-bottom:0;">
+          <div class="card-header"><h2>⏳ Upcoming Payments</h2></div>
+          <div class="card-body" id="payments-upcoming">
+            ${upcoming.length===0?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:16px 0;">No upcoming payments.</p>`:
+            upcoming.map(p=>{
+              const due=new Date(p.next_due); due.setHours(0,0,0,0);
+              const diff=Math.round((due-today)/86400000);
+              const label=diff<0?`${Math.abs(diff)}d overdue`:diff===0?"Today":diff===1?"Tomorrow":`${diff}d`;
+              const [bg,col]=diff<0?["#fff5f5","#c53030"]:diff<=3?["#fefcbf","#744210"]:["#f0fff4","#276749"];
+              const cc=PAYMENT_COLORS[p.type]||"#718096";
+              return `<div style="padding:10px 0;border-bottom:1px solid #f0f4f8;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px;">
+                  <div style="font-weight:600;font-size:0.83rem;color:#2d3748;flex:1;">${esc(p.name)}</div>
+                  <span style="font-size:0.7rem;font-weight:700;background:${bg};color:${col};padding:2px 7px;border-radius:10px;white-space:nowrap;">${label}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div style="display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:0.68rem;font-weight:700;color:${cc};background:${cc}18;padding:1px 6px;border-radius:8px;">${esc(p.type)}</span>
+                    <span style="font-size:0.72rem;color:#718096;">${esc(p.recurrence)}</span>
+                  </div>
+                  ${p.amount?`<span style="font-size:0.82rem;font-weight:700;color:#2d3748;">${esc(p.currency||"SGD")} ${Number(p.amount).toLocaleString()}</span>`:""}
+                </div>
+                <div style="display:flex;gap:6px;margin-top:6px;">
+                  ${can(currentUser,'payments','edit')?`<button onclick="markPaymentPaid('${p.id}')" style="font-size:0.7rem;padding:2px 8px;border-radius:6px;border:1px solid #c6f6d5;background:#f0fff4;color:#276749;cursor:pointer;font-weight:600;">✓ Mark Paid</button>`:""}
+                  ${can(currentUser,'payments','edit')?`<button onclick="openPaymentModal('${p.id}')" style="font-size:0.7rem;padding:2px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f7fafc;color:#4a5568;cursor:pointer;">Edit</button>`:""}
+                  ${can(currentUser,'payments','del')?`<button onclick="deletePayment('${p.id}')" style="font-size:0.7rem;padding:2px 8px;border-radius:6px;border:1px solid #fed7d7;background:#fff5f5;color:#c53030;cursor:pointer;">✕</button>`:""}
+                </div>
+              </div>`;
+            }).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- All payments table -->
+    <div class="card" style="margin-top:18px;">
+      <div class="card-header">
+        <h2>📋 All Scheduled Payments</h2>
+        <div style="display:flex;gap:8px;">
+          <select class="sel" id="pay-filter-type" onchange="renderPaymentsList()" style="font-size:0.75rem;">
+            <option value="">All types</option>
+            ${PAYMENT_TYPES.map(t=>`<option>${esc(t)}</option>`).join("")}
+          </select>
+          <select class="sel" id="pay-filter-status" onchange="renderPaymentsList()" style="font-size:0.75rem;">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body" id="payments-table"></div>
+    </div>
+  `;
+  renderPaymentsList();
+}
+
+function getOccurrencesInMonth(p, year, month){
+  const days=[];
+  const firstOfMonth=new Date(year,month,1);
+  const lastOfMonth=new Date(year,month+1,0);
+  const base=new Date(p.next_due);
+
+  if(p.recurrence==="One-time"){
+    if(base.getFullYear()===year&&base.getMonth()===month) days.push(base.getDate());
+    return days;
+  }
+  if(p.recurrence==="Monthly"||p.recurrence==="Custom"){
+    // Same day each month
+    const day=base.getDate();
+    if(day<=lastOfMonth.getDate()) days.push(day);
+    return days;
+  }
+  if(p.recurrence==="Weekly"){
+    let cur=new Date(base);
+    while(cur<=lastOfMonth){
+      if(cur>=firstOfMonth&&cur.getMonth()===month) days.push(cur.getDate());
+      cur=new Date(cur.getTime()+7*86400000);
+    }
+    // Also go backwards
+    cur=new Date(base.getTime()-7*86400000);
+    while(cur>=firstOfMonth){
+      if(cur.getMonth()===month) days.push(cur.getDate());
+      cur=new Date(cur.getTime()-7*86400000);
+    }
+    return [...new Set(days)];
+  }
+  if(p.recurrence==="Fortnightly"){
+    let cur=new Date(base);
+    while(cur<=lastOfMonth){
+      if(cur>=firstOfMonth&&cur.getMonth()===month) days.push(cur.getDate());
+      cur=new Date(cur.getTime()+14*86400000);
+    }
+    cur=new Date(base.getTime()-14*86400000);
+    while(cur>=firstOfMonth){
+      if(cur.getMonth()===month) days.push(cur.getDate());
+      cur=new Date(cur.getTime()-14*86400000);
+    }
+    return [...new Set(days)];
+  }
+  if(p.recurrence==="Quarterly"){
+    const m=base.getMonth();
+    if((month-m)%3===0) days.push(Math.min(base.getDate(),lastOfMonth.getDate()));
+    return days;
+  }
+  if(p.recurrence==="Yearly"){
+    if(base.getMonth()===month) days.push(Math.min(base.getDate(),lastOfMonth.getDate()));
+    return days;
+  }
+  return days;
+}
+
+function renderPaymentsList(){
+  const el=document.getElementById("payments-table");if(!el)return;
+  const ft=document.getElementById("pay-filter-type")?.value||"";
+  const fs=document.getElementById("pay-filter-status")?.value||"";
+  let list=payments.filter(p=>(!ft||p.type===ft)&&(!fs||p.status===fs));
+  const today=new Date();today.setHours(0,0,0,0);
+  if(list.length===0){el.innerHTML=`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:20px;">No payments found.</p>`;return;}
+  el.innerHTML=`<table><thead><tr><th>Name</th><th>Type</th><th>Amount</th><th>Next Due</th><th>Recurrence</th><th>Reminder</th><th>Status</th><th>Assigned To</th><th></th></tr></thead><tbody>
+    ${list.map(p=>{
+      const cc=PAYMENT_COLORS[p.type]||"#718096";
+      const due=new Date(p.next_due);due.setHours(0,0,0,0);
+      const diff=Math.round((due-today)/86400000);
+      const dueColor=p.status!=="paid"&&diff<0?"#c53030":p.status!=="paid"&&diff<=3?"#744210":"#4a5568";
+      const m=TEAM[p.assigned_to]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
+      return `<tr>
+        <td style="font-weight:600;color:#2d3748;">${esc(p.name)}</td>
+        <td><span style="font-size:0.68rem;font-weight:700;color:${cc};background:${cc}18;padding:2px 7px;border-radius:8px;">${esc(p.type)}</span></td>
+        <td style="font-weight:600;">${p.amount?`${esc(p.currency||"SGD")} ${Number(p.amount).toLocaleString()}`:"-"}</td>
+        <td style="font-size:0.78rem;color:${dueColor};font-weight:600;">${fmtDate(p.next_due)}</td>
+        <td style="font-size:0.78rem;color:#718096;">${esc(p.recurrence)}</td>
+        <td style="font-size:0.78rem;color:#718096;">${p.reminder_days} day${p.reminder_days!==1?"s":""} before</td>
+        <td><span style="font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:${p.status==="paid"?"#f0fff4":"#fefcbf"};color:${p.status==="paid"?"#276749":"#744210"};">${p.status==="paid"?"✓ Paid":"Pending"}</span></td>
+        <td><div style="display:inline-flex;align-items:center;gap:4px;background:${m.pillBg};border-radius:10px;padding:2px 8px 2px 4px;">
+          <div style="width:16px;height:16px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${m.initials}</div>
+          <span style="font-size:0.72rem;font-weight:600;color:${m.pillText};">${esc(p.assigned_to||"-")}</span>
+        </div></td>
+        <td><div style="display:flex;gap:4px;">
+          ${p.status!=="paid"?`<button onclick="markPaymentPaid('${p.id}')" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;border:1px solid #c6f6d5;background:#f0fff4;color:#276749;cursor:pointer;font-weight:600;">✓ Paid</button>`:""}
+          <button onclick="openPaymentModal('${p.id}')" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;border:1px solid #e2e8f0;background:#f7fafc;color:#4a5568;cursor:pointer;">Edit</button>
+          <button onclick="deletePayment('${p.id}')" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;border:1px solid #fed7d7;background:#fff5f5;color:#c53030;cursor:pointer;">✕</button>
+        </div></td>
+      </tr>`;
+    }).join("")}
+  </tbody></table>`;
+}
+
+function openPaymentModal(id){
+  const p=id?payments.find(x=>x.id===id):null;
+  editingPayment=p||null;
+  const modal=document.getElementById("payment-modal");
+  if(!modal)return;
+  document.getElementById("pm-name").value=p?.name||"";
+  document.getElementById("pm-type").value=p?.type||"Vendor Payment";
+  document.getElementById("pm-amount").value=p?.amount||"";
+  document.getElementById("pm-currency").value=p?.currency||"SGD";
+  document.getElementById("pm-due").value=p?.next_due||"";
+  document.getElementById("pm-recurrence").value=p?.recurrence||"One-time";
+  document.getElementById("pm-custom-interval").value=p?.custom_interval||"";
+  document.getElementById("pm-reminder").value=p?.reminder_days||3;
+  document.getElementById("pm-assigned").value=p?.assigned_to||currentUser;
+  document.getElementById("pm-notes").value=p?.notes||"";
+  document.getElementById("pm-custom-row").style.display=((p?.recurrence||"One-time")==="Custom")?"flex":"none";
+  modal.style.display="flex";
+}
+function closePaymentModal(){ document.getElementById("payment-modal").style.display="none"; editingPayment=null; }
+
+async function savePayment(){
+  const name=document.getElementById("pm-name").value.trim();
+  const type=document.getElementById("pm-type").value;
+  const amount=document.getElementById("pm-amount").value;
+  const currency=document.getElementById("pm-currency").value;
+  const next_due=document.getElementById("pm-due").value;
+  const recurrence=document.getElementById("pm-recurrence").value;
+  const custom_interval=document.getElementById("pm-custom-interval").value;
+  const reminder_days=parseInt(document.getElementById("pm-reminder").value)||3;
+  const assigned_to=document.getElementById("pm-assigned").value;
+  const notes=document.getElementById("pm-notes").value.trim();
+  if(!name||!next_due){alert("Please fill in payment name and due date.");return;}
+  const payload={name,type,amount:amount?parseFloat(amount):null,currency,next_due,recurrence,custom_interval,reminder_days,assigned_to,notes,status:"pending"};
+  try{
+    if(editingPayment){
+      await api(`/payments?id=eq.${editingPayment.id}`,"PATCH",payload);
+      payments=payments.map(p=>p.id===editingPayment.id?{...p,...payload}:p);
+    }else{
+      const created=await api("/payments","POST",payload);
+      payments=[...payments,...(Array.isArray(created)?created:[created])].sort((a,b)=>new Date(a.next_due)-new Date(b.next_due));
+    }
+    closePaymentModal();
+    checkPaymentAlerts();
+    renderPaymentsCalendar();
+    renderPaymentsList();
+    if(activeTab==="dashboard") renderDashboard();
+  }catch(e){alert("Could not save payment: "+e.message);}
+}
+
+async function markPaymentPaid(id){
+  const p=payments.find(x=>x.id===id);if(!p)return;
+  // Advance next_due based on recurrence
+  let nextDue=new Date(p.next_due);
+  if(p.recurrence==="Weekly") nextDue=new Date(nextDue.getTime()+7*86400000);
+  else if(p.recurrence==="Fortnightly") nextDue=new Date(nextDue.getTime()+14*86400000);
+  else if(p.recurrence==="Monthly"){ nextDue.setMonth(nextDue.getMonth()+1); }
+  else if(p.recurrence==="Quarterly"){ nextDue.setMonth(nextDue.getMonth()+3); }
+  else if(p.recurrence==="Yearly"){ nextDue.setFullYear(nextDue.getFullYear()+1); }
+  else if(p.recurrence==="Custom"&&p.custom_interval){ nextDue=new Date(nextDue.getTime()+parseInt(p.custom_interval)*86400000); }
+
+  const isRecurring=p.recurrence!=="One-time";
+  const newStatus=isRecurring?"pending":"paid";
+  const newDue=isRecurring?nextDue.toISOString().split("T")[0]:p.next_due;
+  await api(`/payments?id=eq.${id}`,"PATCH",{status:newStatus,next_due:newDue});
+  payments=payments.map(x=>x.id===id?{...x,status:newStatus,next_due:newDue}:x);
+  checkPaymentAlerts();
+  renderPaymentsCalendar();
+  renderPaymentsList();
+  if(activeTab==="dashboard") renderDashboard();
+}
+
+async function deletePayment(id){
+  if(!confirm("Delete this payment schedule?"))return;
+  await api(`/payments?id=eq.${id}`,"DELETE");
+  payments=payments.filter(p=>p.id!==id);
+  checkPaymentAlerts();
+  renderPaymentsCalendar();
+  renderPaymentsList();
+}
+
+
+// ── Security ──────────────────────────────────────────────────────────────────
+function renderSecurity(){
+  const el=document.getElementById("security-content"); if(!el)return;
+  const tabs=["tasks","payments","meetings","dashboard"];
+  const actions=["view","add","edit","del"];
+  const actionLabels={view:"View",add:"Add",edit:"Edit",del:"Delete"};
+  const tabLabels={tasks:"📋 Tasks",payments:"💳 Payments",meetings:"🤝 Meeting",dashboard:"🏠 Dashboard"};
+  const users=Object.keys(USERS).filter(u=>u!=="Syaqil"); // Syaqil is super admin, always full access
+
+  el.innerHTML=`
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);border-radius:14px;padding:22px 26px;color:white;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:1.1rem;font-weight:800;margin-bottom:4px;">🔐 Security &amp; Access Control</div>
+        <div style="font-size:0.82rem;opacity:0.85;">Manage what each team member can see and do. Changes take effect immediately.</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:10px 16px;text-align:center;">
+        <div style="font-size:0.7rem;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Logged in as</div>
+        <div style="font-size:0.9rem;font-weight:700;">👑 ${esc(currentUser)} — Super Admin</div>
+        <div style="font-size:0.7rem;opacity:0.7;margin-top:2px;">Full access to all features</div>
+      </div>
+    </div>
+
+    <!-- Super admin card -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header" style="background:#f0fff4;">
+        <h2 style="color:#276749;">👑 Super Admin — Syaqil</h2>
+        <span style="font-size:0.75rem;background:#c6f6d5;color:#276749;padding:3px 10px;border-radius:10px;font-weight:700;">Full Access · Cannot be modified</span>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${tabs.map(t=>`<div style="background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px;padding:8px 14px;">
+            <div style="font-size:0.75rem;font-weight:700;color:#276749;margin-bottom:4px;">${tabLabels[t]}</div>
+            <div style="display:flex;gap:5px;">${actions.map(a=>`<span style="font-size:0.68rem;background:#38a169;color:white;border-radius:5px;padding:1px 6px;font-weight:600;">${actionLabels[a]}</span>`).join("")}</div>
+          </div>`).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-user permission tables -->
+    ${users.map(username=>{
+      const u=USERS[username];
+      const m=TEAM[username]||{initials:"??",color:"#718096"};
+      const perms=PERMISSIONS[username]||{};
+      return `<div class="card" style="margin-bottom:18px;">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:white;">${m.initials}</div>
+            <div>
+              <div style="font-size:0.92rem;font-weight:700;color:#2d3748;">${esc(username)}</div>
+              <div style="font-size:0.75rem;color:#718096;">${esc(u.role)}</div>
+            </div>
+            ${u.admin?`<span style="font-size:0.68rem;background:#fef3c7;color:#744210;padding:2px 8px;border-radius:8px;font-weight:700;">Admin</span>`:""}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="resetUserPermissions('${username}')" style="font-size:0.75rem;padding:4px 10px;border-radius:7px;border:1px solid #e2e8f0;background:#f7fafc;color:#718096;cursor:pointer;">Reset to default</button>
+            <button onclick="revokeAllPermissions('${username}')" style="font-size:0.75rem;padding:4px 10px;border-radius:7px;border:1px solid #fed7d7;background:#fff5f5;color:#c53030;cursor:pointer;">Revoke all</button>
+            <button onclick="grantAllPermissions('${username}')" style="font-size:0.75rem;padding:4px 10px;border-radius:7px;border:1px solid #c6f6d5;background:#f0fff4;color:#276749;cursor:pointer;">Grant all</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <table style="font-size:0.82rem;">
+            <thead><tr>
+              <th style="width:160px;">Tab</th>
+              ${actions.map(a=>`<th style="text-align:center;width:80px;">${actionLabels[a]}</th>`).join("")}
+              <th style="text-align:center;">Quick Set</th>
+            </tr></thead>
+            <tbody>
+              ${tabs.map(tab=>{
+                const tabPerms=perms[tab]||{};
+                const allOn=actions.every(a=>tab==="dashboard"?tabPerms["view"]:tabPerms[a]);
+                return `<tr>
+                  <td style="font-weight:600;color:#2d3748;">${tabLabels[tab]}</td>
+                  ${actions.map(a=>{
+                    const isDisabled=(tab==="dashboard"&&a!=="view");
+                    const checked=isDisabled?false:tabPerms[a]||false;
+                    return `<td style="text-align:center;">
+                      ${isDisabled
+                        ?`<span style="color:#e2e8f0;font-size:1rem;">—</span>`
+                        :`<input type="checkbox" ${checked?"checked":""} onchange="togglePerm('${username}','${tab}','${a}',this.checked)"
+                          style="width:16px;height:16px;cursor:pointer;accent-color:${m.color};" />`
+                      }
+                    </td>`;
+                  }).join("")}
+                  <td style="text-align:center;">
+                    <button onclick="setTabAllPerms('${username}','${tab}',true)" style="font-size:0.68rem;padding:1px 7px;border-radius:5px;border:1px solid #c6f6d5;background:#f0fff4;color:#276749;cursor:pointer;margin-right:3px;">All</button>
+                    <button onclick="setTabAllPerms('${username}','${tab}',false)" style="font-size:0.68rem;padding:1px 7px;border-radius:5px;border:1px solid #fed7d7;background:#fff5f5;color:#c53030;cursor:pointer;">None</button>
+                  </td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join("")}
+
+    <!-- Change password section -->
+    <div class="card">
+      <div class="card-header"><h2>🔑 Change Passwords</h2></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          ${Object.keys(USERS).map(username=>{
+            const m=TEAM[username]||{initials:"??",color:"#718096"};
+            return `<div style="background:#f7fafc;border-radius:10px;padding:14px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div style="width:26px;height:26px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:white;">${m.initials}</div>
+                <span style="font-weight:700;font-size:0.85rem;color:#2d3748;">${esc(username)}</span>
+                ${USERS[username].superAdmin?`<span style="font-size:0.65rem;background:#f6e05e;color:#744210;border-radius:5px;padding:1px 6px;font-weight:700;">Super Admin</span>`:""}
+              </div>
+              <input class="inp" id="pw-${username}" type="password" placeholder="New password…" style="margin-bottom:8px;font-size:0.8rem;" />
+              <button onclick="changePassword('${username}')" style="width:100%;padding:6px;border-radius:7px;border:none;background:${m.color};color:white;font-size:0.78rem;font-weight:600;cursor:pointer;">Update Password</button>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="card" style="margin-top:18px;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';">
+        <h2>📋 Permission Change Log</h2>
+        <span style="color:#718096;font-size:0.8rem;">▼ Show</span>
+      </div>
+      <div style="display:none;" class="card-body" id="perm-log-body">
+        ${permLog.length===0
+          ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:12px 0;">No changes recorded yet.</p>`
+          :permLog.map(l=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f7fafc;font-size:0.8rem;">
+              <span style="color:#a0aec0;font-size:0.72rem;white-space:nowrap;">${l.time}</span>
+              <span style="flex:1;color:#4a5568;">${esc(l.msg)}</span>
+            </div>`).join("")
+        }
+      </div>
+    </div>
+  `;
+}
+
+// Permission helpers
+let permLog = JSON.parse(sessionStorage.getItem("permLog")||"[]");
+
+function logPermChange(msg){
+  const time=new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  permLog.unshift({time,msg});
+  if(permLog.length>50) permLog=permLog.slice(0,50);
+  sessionStorage.setItem("permLog",JSON.stringify(permLog));
+}
+
+function togglePerm(username,tab,action,val){
+  if(!PERMISSIONS[username]) PERMISSIONS[username]={};
+  if(!PERMISSIONS[username][tab]) PERMISSIONS[username][tab]={};
+  PERMISSIONS[username][tab][action]=val;
+  savePermissions(PERMISSIONS);
+  logPermChange(`${currentUser} ${val?"granted":"revoked"} ${action} on ${tab} for ${username}`);
+  renderSecurity();
+}
+
+function setTabAllPerms(username,tab,val){
+  if(!PERMISSIONS[username]) PERMISSIONS[username]={};
+  if(!PERMISSIONS[username][tab]) PERMISSIONS[username][tab]={};
+  ["view","add","edit","del"].forEach(a=>{ if(!(tab==="dashboard"&&a!=="view")) PERMISSIONS[username][tab][a]=val; });
+  savePermissions(PERMISSIONS);
+  logPermChange(`${currentUser} ${val?"granted all":"revoked all"} on ${tab} for ${username}`);
+  renderSecurity();
+}
+
+function revokeAllPermissions(username){
+  ["tasks","payments","meetings","dashboard"].forEach(tab=>setTabAllPerms(username,tab,false));
+  logPermChange(`${currentUser} revoked ALL permissions for ${username}`);
+}
+
+function grantAllPermissions(username){
+  ["tasks","payments","meetings","dashboard"].forEach(tab=>setTabAllPerms(username,tab,true));
+  logPermChange(`${currentUser} granted ALL permissions for ${username}`);
+}
+
+function resetUserPermissions(username){
+  PERMISSIONS[username]=JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS[username]||{}));
+  savePermissions(PERMISSIONS);
+  logPermChange(`${currentUser} reset permissions to default for ${username}`);
+  renderSecurity();
+}
+
+function changePassword(username){
+  const input=document.getElementById("pw-"+username);
+  const newPw=input?.value?.trim();
+  if(!newPw||newPw.length<6){alert("Password must be at least 6 characters.");return;}
+  USERS[username].password=newPw;
+  input.value="";
+  logPermChange(`${currentUser} changed password for ${username}`);
+  alert(`✅ Password for ${username} updated successfully!`);
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
   document.getElementById("main-app").style.display="block";
-  buildStaticShell();fetchTasks();fetchDeleteLog();fetchMeetings();
+  buildStaticShell();fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
 }else{showLogin();}
-setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();}},10000);
+setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}},30000);
 </script>
+
+<!-- Payment Modal -->
+<div id="payment-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1rem;font-weight:700;color:#1a365d;">Schedule Payment</h2>
+      <button onclick="closePaymentModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="grid-column:1/-1;">
+        <label class="login-label">Payment Name</label>
+        <input class="inp" id="pm-name" placeholder="e.g. Office Rent" />
+      </div>
+      <div>
+        <label class="login-label">Type</label>
+        <select class="inp" id="pm-type">
+          <option>Vendor Payment</option><option>Payroll</option><option>Invoice</option>
+          <option>Rent/Utilities</option><option>Tax</option><option>Loan</option><option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label class="login-label">Assigned To</label>
+        <select class="inp" id="pm-assigned">
+          <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
+        </select>
+      </div>
+      <div>
+        <label class="login-label">Amount</label>
+        <input class="inp" id="pm-amount" type="number" placeholder="0.00" />
+      </div>
+      <div>
+        <label class="login-label">Currency</label>
+        <select class="inp" id="pm-currency">
+          <option value="SGD">SGD</option><option value="MYR">MYR</option>
+          <option value="USD">USD</option><option value="EUR">EUR</option>
+        </select>
+      </div>
+      <div>
+        <label class="login-label">Next Due Date</label>
+        <input class="inp" id="pm-due" type="date" />
+      </div>
+      <div>
+        <label class="login-label">Recurrence</label>
+        <select class="inp" id="pm-recurrence" onchange="document.getElementById('pm-custom-row').style.display=this.value==='Custom'?'flex':'none';">
+          <option>One-time</option><option>Daily</option><option>Weekly</option>
+          <option>Fortnightly</option><option>Monthly</option><option>Quarterly</option>
+          <option>Yearly</option><option>Custom</option>
+        </select>
+      </div>
+      <div id="pm-custom-row" style="display:none;grid-column:1/-1;align-items:center;gap:8px;">
+        <label class="login-label" style="margin:0;white-space:nowrap;">Every</label>
+        <input class="inp" id="pm-custom-interval" type="number" placeholder="e.g. 10" style="width:80px;" />
+        <span style="font-size:0.82rem;color:#718096;">days</span>
+      </div>
+      <div>
+        <label class="login-label">Remind me</label>
+        <select class="inp" id="pm-reminder">
+          <option value="1">1 day before</option>
+          <option value="3" selected>3 days before</option>
+          <option value="5">5 days before</option>
+          <option value="7">7 days before</option>
+          <option value="14">14 days before</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label class="login-label">Notes (optional)</label>
+        <textarea class="inp" id="pm-notes" placeholder="Vendor details, reference number…" style="min-height:60px;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-danger" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
