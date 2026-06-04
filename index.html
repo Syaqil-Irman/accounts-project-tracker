@@ -286,6 +286,7 @@ function logout(){
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab){
   activeTab=tab;
+  sessionStorage.setItem("activeTab",tab);
   document.getElementById("tab-dashboard").style.display=tab==="dashboard"?"block":"none";
   document.getElementById("tab-tasks").style.display=tab==="tasks"?"block":"none";
   document.getElementById("tab-meeting").style.display=tab==="meeting"?"block":"none";
@@ -1529,7 +1530,11 @@ function changePassword(username){
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
   document.getElementById("main-app").style.display="block";
-  buildStaticShell();fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
+  buildStaticShell();
+  const savedTab = sessionStorage.getItem("activeTab")||"tasks";
+  fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
+  // Restore tab after shell is built
+  setTimeout(()=>switchTab(savedTab), 50);
 }else{showLogin();}
 setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}},30000);
 </script>
