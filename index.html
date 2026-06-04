@@ -67,10 +67,11 @@
   .logout-btn:hover { background:rgba(255,255,255,0.25); }
   /* Dashboard drag & drop */
   .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; cursor:grab; transition:box-shadow .2s, transform .2s; position:relative; }
-  .dash-module:active { cursor:grabbing; }
-  .dash-module.dragging { opacity:0.4; transform:scale(0.98); box-shadow:0 8px 24px rgba(0,0,0,0.15); }
-  .dash-module.drag-over { box-shadow:0 0 0 2px #2b6cb0; }
+  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; transition:box-shadow .2s, transform .2s, opacity .2s; position:relative; }
+  .dash-module.dragging { opacity:0.4; transform:scale(0.97); }
+  .dash-module.drag-over { box-shadow:0 0 0 3px #2b6cb0 !important; transform:scale(1.01); }
+  /* Block children from intercepting drag events */
+  .dash-module.drag-active * { pointer-events:none; }
   .dash-module.hidden-module { display:none; }
   .drag-handle { display:flex; align-items:center; gap:6px; padding:13px 18px; border-bottom:1px solid #e2e8f0; justify-content:space-between; }
   .drag-handle h3 { font-size:0.88rem; font-weight:700; color:#2d3748; }
@@ -883,12 +884,13 @@ function renderDashboard(){
     const isHidden = layout.hidden.includes(key);
     const m = MODULES[key]; if(!m) return "";
     const innerHTML = buildModuleInner(key);
-    return `<div class="dash-module${isHidden?" hidden-module":""}" data-key="${key}" draggable="false"
-      style="${m.size==="full"?"grid-column:1/-1":""}">
+    return `<div class="dash-module${isHidden?" hidden-module":""}" data-key="${key}"
+      style="${m.size==="full"?"grid-column:1/-1":""};${isEditMode?"cursor:grab;":""}" >
       <div class="drag-handle">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="drag-handle-icon" title="Drag to reorder">⠿</span>
+          ${isEditMode?`<span class="drag-handle-icon" title="Drag to reorder" style="font-size:1.2rem;cursor:grab;color:#2b6cb0;background:#ebf8ff;border-radius:5px;padding:2px 6px;user-select:none;">⠿</span>`:""}
           <h3>${m.title}</h3>
+          ${isEditMode?`<span style="font-size:0.68rem;color:#a0aec0;font-weight:400;">drag to move</span>`:""}
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           ${key==="welcome"?"":buildViewAllBtn(key)}
@@ -1117,61 +1119,74 @@ let dashDragSrc = null;
 function initDashDrag(){
   const grid = document.getElementById("dash-grid");
   if(!grid) return;
-  const modules = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")];
 
-  modules.forEach(el=>{
-    const handle = el.querySelector(".drag-handle-icon");
-    if(!handle) return;
+  grid.querySelectorAll(".dash-module").forEach(el=>{
+    el.setAttribute("draggable","true");
 
-    // Only allow drag from handle
-    handle.addEventListener("mousedown", ()=>{ el.setAttribute("draggable","true"); });
-    el.addEventListener("dragend", ()=>{ el.setAttribute("draggable","false"); });
-
-    el.addEventListener("dragstart", e=>{
+    el.ondragstart = e=>{
       dashDragSrc = el;
       e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", el.dataset.key);
-      setTimeout(()=>el.classList.add("dragging"), 0);
-    });
+      e.dataTransfer.setData("text/plain", el.dataset.key||"");
+      setTimeout(()=>{
+        el.style.opacity="0.4";
+        // Block child pointer events on ALL modules so drag enters work cleanly
+        grid.querySelectorAll(".dash-module").forEach(m=>m.classList.add("drag-active"));
+      },0);
+    };
 
-    el.addEventListener("dragend", e=>{
-      el.classList.remove("dragging");
-      el.setAttribute("draggable","false");
-      grid.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
+    el.ondragend = e=>{
+      el.style.opacity="1";
+      grid.querySelectorAll(".dash-module").forEach(m=>{
+        m.style.outline="";
+        m.style.transform="";
+        m.classList.remove("drag-active");
+      });
       dashDragSrc = null;
-    });
+    };
 
-    el.addEventListener("dragover", e=>{
+    el.ondragover = e=>{
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
+    };
+
+    el.ondragenter = e=>{
+      e.preventDefault();
       if(el !== dashDragSrc){
-        grid.querySelectorAll(".dash-module").forEach(m=>m.classList.remove("drag-over"));
-        el.classList.add("drag-over");
+        el.style.outline="2px solid #2b6cb0";
+        el.style.transform="scale(1.01)";
       }
-    });
+    };
 
-    el.addEventListener("dragleave", e=>{
-      el.classList.remove("drag-over");
-    });
+    el.ondragleave = e=>{
+      // Only clear if leaving the element itself, not a child
+      if(!el.contains(e.relatedTarget)){
+        el.style.outline="";
+        el.style.transform="";
+      }
+    };
 
-    el.addEventListener("drop", e=>{
+    el.ondrop = e=>{
       e.preventDefault();
       e.stopPropagation();
-      el.classList.remove("drag-over");
-      if(!dashDragSrc || dashDragSrc===el) return;
-      const srcKey = dashDragSrc.dataset.key;
-      const tgtKey = el.dataset.key;
-      if(!srcKey||!tgtKey) return;
-      const layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||JSON.stringify({order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]}));
+      el.style.outline="";
+      el.style.transform="";
+      if(!dashDragSrc||dashDragSrc===el) return;
+      const srcKey=dashDragSrc.dataset.key;
+      const tgtKey=el.dataset.key;
+      if(!srcKey||!tgtKey||srcKey===tgtKey) return;
+      const def={order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]};
+      const layout=JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser)||JSON.stringify(def));
       const si=layout.order.indexOf(srcKey), ti=layout.order.indexOf(tgtKey);
-      if(si>-1&&ti>-1){ layout.order.splice(si,1); layout.order.splice(ti,0,srcKey); }
-      sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
-      renderDashboard();
-    });
+      if(si>-1&&ti>-1){
+        layout.order.splice(si,1);
+        layout.order.splice(ti,0,srcKey);
+        sessionStorage.setItem("dash_layout_"+currentUser,JSON.stringify(layout));
+        renderDashboard();
+      }
+    };
   });
 }
 
-// Legacy inline handlers (kept for compatibility but initDashDrag overrides)
 function dashDragStart(e,el){}
 function dashDragOver(e,el){ e.preventDefault(); }
 function dashDrop(e,el){ e.preventDefault(); }
