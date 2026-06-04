@@ -1396,10 +1396,11 @@ function renderSecurity(){
             </div>
             ${u.admin?`<span style="font-size:0.68rem;background:#fef3c7;color:#744210;padding:2px 8px;border-radius:8px;font-weight:700;">Admin</span>`:""}
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <button onclick="resetUserPermissions('${username}')" style="font-size:0.75rem;padding:4px 10px;border-radius:7px;border:1px solid #e2e8f0;background:#f7fafc;color:#718096;cursor:pointer;">Reset to default</button>
             <button onclick="revokeAllPermissions('${username}')" style="font-size:0.75rem;padding:4px 10px;border-radius:7px;border:1px solid #fed7d7;background:#fff5f5;color:#c53030;cursor:pointer;">Revoke all</button>
             <button onclick="grantAllPermissions('${username}')" style="font-size:0.75rem;padding:4px 10px;border-radius:7px;border:1px solid #c6f6d5;background:#f0fff4;color:#276749;cursor:pointer;">Grant all</button>
+            <button id="save-btn-${username}" onclick="saveUserPermissions('${username}')" style="font-size:0.75rem;padding:4px 14px;border-radius:7px;border:none;background:#2b6cb0;color:white;cursor:pointer;font-weight:700;">💾 Save & Apply</button>
           </div>
         </div>
         <div class="card-body">
@@ -1480,6 +1481,46 @@ function renderSecurity(){
 
 // Permission helpers
 let permLog = JSON.parse(sessionStorage.getItem("permLog")||"[]");
+let unsavedUsers = new Set(); // track which users have unsaved changes
+
+async function saveUserPermissions(username){
+  const btn = document.getElementById("save-btn-"+username);
+  if(btn){ btn.textContent="Saving…"; btn.disabled=true; }
+  try{
+    // Upsert into settings table
+    const existing = await api(`/settings?key=eq.permissions_${username}`);
+    if(existing && existing.length>0){
+      await api(`/settings?key=eq.permissions_${username}`,"PATCH",{
+        value: JSON.stringify(PERMISSIONS[username])
+      });
+    } else {
+      await api("/settings","POST",{
+        key: `permissions_${username}`,
+        value: JSON.stringify(PERMISSIONS[username])
+      });
+    }
+    unsavedUsers.delete(username);
+    logPermChange(`${currentUser} saved permissions for ${username}`);
+    if(btn){ btn.textContent="✓ Saved!"; btn.style.background="#38a169"; }
+    setTimeout(()=>{ if(btn){ btn.textContent="💾 Save & Apply"; btn.style.background="#2b6cb0"; btn.disabled=false; } }, 2000);
+  } catch(e){
+    if(btn){ btn.textContent="💾 Save & Apply"; btn.disabled=false; }
+    alert("Could not save permissions: "+e.message);
+  }
+}
+
+async function loadPermissionsFromDB(){
+  try{
+    const rows = await api("/settings?key=like.permissions_*");
+    if(rows && rows.length>0){
+      rows.forEach(row=>{
+        const username = row.key.replace("permissions_","");
+        try{ PERMISSIONS[username] = JSON.parse(row.value); } catch(e){}
+      });
+      savePermissions(PERMISSIONS);
+    }
+  } catch(e){ console.log("No saved permissions found, using defaults"); }
+}
 
 function logPermChange(msg){
   const time=new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -1494,7 +1535,15 @@ function togglePerm(username,tab,action,val){
   PERMISSIONS[username][tab][action]=val;
   savePermissions(PERMISSIONS);
   logPermChange(`${currentUser} ${val?"granted":"revoked"} ${action} on ${tab} for ${username}`);
+  markUnsaved(username);
   renderSecurity();
+}
+
+function markUnsaved(username){
+  unsavedUsers.add(username);
+  // Highlight save button
+  const btn=document.getElementById("save-btn-"+username);
+  if(btn){ btn.textContent="💾 Save & Apply"; btn.style.background="#c05621"; btn.disabled=false; }
 }
 
 function setTabAllPerms(username,tab,val){
@@ -1503,6 +1552,7 @@ function setTabAllPerms(username,tab,val){
   ["view","add","edit","del"].forEach(a=>{ if(!(tab==="dashboard"&&a!=="view")) PERMISSIONS[username][tab][a]=val; });
   savePermissions(PERMISSIONS);
   logPermChange(`${currentUser} ${val?"granted all":"revoked all"} on ${tab} for ${username}`);
+  markUnsaved(username);
   renderSecurity();
 }
 
@@ -1535,18 +1585,18 @@ function changePassword(username){
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
-  document.getElementById("main-app").style.display="block";
+  const app = document.getElementById("main-app");
+  app.style.display="block";
   const savedTab = sessionStorage.getItem("activeTab")||"tasks";
-  buildStaticShell();
-  switchTab(savedTab);
-  // Show app only after shell + tab are fully painted
-  requestAnimationFrame(()=>{
+  // Load permissions from DB first so access control is correct before rendering
+  loadPermissionsFromDB().finally(()=>{
+    buildStaticShell();
+    switchTab(savedTab);
     requestAnimationFrame(()=>{
-      const app = document.getElementById("main-app");
-      app.style.opacity = "1";
+      requestAnimationFrame(()=>{ app.style.opacity="1"; });
     });
+    fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
   });
-  fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
 }else{showLogin();}
 setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}},30000);
 </script>
