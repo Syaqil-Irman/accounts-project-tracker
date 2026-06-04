@@ -74,7 +74,7 @@
 </head>
 <body>
 <div id="login-screen"></div>
-<div id="main-app" style="display:none;">
+<div id="main-app" style="display:none;opacity:0;transition:opacity 0.15s ease;">
   <div id="app-header"></div>
   <div id="error-bar"></div>
   <!-- Tab content -->
@@ -273,8 +273,14 @@ function login(){
   if(!USERS[u]||USERS[u].password!==p){showLogin("Incorrect username or password.");return;}
   currentUser=u; sessionStorage.setItem("currentUser",u);
   document.getElementById("login-screen").innerHTML="";
-  document.getElementById("main-app").style.display="block";
-  buildStaticShell(); fetchTasks(); fetchDeleteLog(); fetchMeetings();
+  const app=document.getElementById("main-app");
+  app.style.display="block";
+  app.style.opacity="0";
+  buildStaticShell();
+  const savedTab2=sessionStorage.getItem("activeTab")||"tasks";
+  switchTab(savedTab2);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ app.style.opacity="1"; }); });
+  fetchTasks(); fetchDeleteLog(); fetchMeetings(); fetchPayments();
 }
 
 function logout(){
@@ -1533,6 +1539,13 @@ if(currentUser){
   const savedTab = sessionStorage.getItem("activeTab")||"tasks";
   buildStaticShell();
   switchTab(savedTab);
+  // Show app only after shell + tab are fully painted
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      const app = document.getElementById("main-app");
+      app.style.opacity = "1";
+    });
+  });
   fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
 }else{showLogin();}
 setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}},30000);
