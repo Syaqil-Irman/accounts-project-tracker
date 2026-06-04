@@ -117,6 +117,20 @@
         <div class="card-body">
           <div id="task-table-wrap"></div>
           <div class="add-row" id="add-task-row"></div>
+        <!-- Recurrence detail row -->
+        <div id="task-recur-detail" style="display:none;margin-top:8px;gap:10px;align-items:center;flex-wrap:wrap;background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px;padding:10px 14px;">
+          <span style="font-size:0.82rem;font-weight:600;color:#276749;">🔁 Repeats:</span>
+          <div id="recur-by-date-fields" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.82rem;color:#276749;">Every month on the</span>
+            <select class="inp" id="recur-day-of-month" style="width:70px;font-size:0.8rem;padding:4px 8px;"></select>
+            <span style="font-size:0.82rem;color:#276749;">day</span>
+          </div>
+          <div id="recur-by-day-fields" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.82rem;color:#276749;">Every</span>
+            <select class="inp" id="recur-day-of-week" style="width:120px;font-size:0.8rem;padding:4px 8px;"></select>
+          </div>
+          <span style="font-size:0.73rem;color:#38a169;font-style:italic;">· Next task auto-created when marked Done</span>
+        </div>
         </div>
       </div>
       <div>
@@ -402,7 +416,7 @@ function buildStaticShell(){
   // Add task row
   const tm=TEAM[currentUser]||{initials:"??",color:"#718096"};
   document.getElementById("add-task-row").innerHTML=`
-    <input class="inp" id="new-task-name" type="text" placeholder="Task name…" onkeydown="if(event.key==='Enter')addTask();" />
+    <input class="inp" id="new-task-name" type="text" placeholder="Task name…" onkeydown="if(event.key===\'Enter\')addTask();" />
     <div class="inp" style="background:#f7fafc;color:#4a5568;display:flex;align-items:center;gap:6px;cursor:default;">
       <div style="width:16px;height:16px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${tm.initials}</div>
       ${esc(currentUser)}
@@ -412,8 +426,12 @@ function buildStaticShell(){
       ${CATEGORIES.map(c=>`<option>${esc(c)}</option>`).join("")}
     </select>
     <input class="inp" id="new-task-due" type="date" />
-
-    ${can(currentUser,'tasks','add')?`<button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`:`<button class="btn" disabled style="background:#e2e8f0;color:#a0aec0;cursor:not-allowed;" title="No permission">+ Add</button>`}`;
+    <select class="inp" id="new-task-recur" onchange="toggleTaskRecurFields()" style="font-size:0.78rem;">
+      <option value="">No recurrence</option>
+      <option value="by_date">📅 Monthly by date</option>
+      <option value="by_day">📆 Weekly by day</option>
+    </select>
+    ${can(currentUser,\'tasks\',\'add\')?`<button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`:`<button class="btn" disabled style="background:#e2e8f0;color:#a0aec0;cursor:not-allowed;" title="No permission">+ Add</button>`}`;
 }
 
 // ── Filter bar ────────────────────────────────────────────────────────────────
@@ -521,7 +539,10 @@ function renderTable(){
 
       <td style="max-width:180px;" title="${esc(t.name)}">
         <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</div>
-        ${(()=>{ const e=getTaskEscalation(t.id); return e?`<div style="font-size:0.67rem;color:#c53030;margin-top:2px;">⚡ Escalated from <strong>${esc(e.from_owner)}</strong> by ${esc(e.escalated_by)}</div>`:""; })()}
+        <div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap;">
+          ${t.recur_type?`<span style="font-size:0.65rem;font-weight:700;background:#f0fff4;color:#276749;border-radius:6px;padding:1px 6px;">🔁 ${t.recur_type==="by_date"?`Monthly (${t.recur_day_of_month}${t.recur_day_of_month===1?"st":t.recur_day_of_month===2?"nd":t.recur_day_of_month===3?"rd":"th"})`:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][t.recur_day_of_week]||"Weekly"}</span>`:""}
+          ${(()=>{ const e=getTaskEscalation(t.id); return e?`<span style="font-size:0.65rem;color:#c53030;">⚡ from ${esc(e.from_owner)}</span>`:""; })()}
+        </div>
       </td>
       <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
       <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;">
@@ -607,10 +628,19 @@ function renderDeleteLog(){
 
 // ── Task actions ──────────────────────────────────────────────────────────────
 async function updateStatus(id,status){
-  const progress=status==="Done"?100:status==="To Do"?0:(tasks.find(t=>t.id===id)||{}).progress||0;
-  tasks=tasks.map(t=>t.id===id?{...t,status,progress}:t);
+  const t=tasks.find(t=>t.id===id);
+  const progress=status==="Done"?100:status==="To Do"?0:t?.progress||0;
+  tasks=tasks.map(x=>x.id===id?{...x,status,progress}:x);
   renderKPIs();renderTable();renderSidePanels();
-  try{await api(`/tasks?id=eq.${id}`,"PATCH",{status,progress});updateSyncLabel();}
+  try{
+    await api(`/tasks?id=eq.${id}`,"PATCH",{status,progress});
+    updateSyncLabel();
+    // Auto-create next recurring task when marked Done
+    if(status==="Done" && t?.recur_type){
+      await createNextRecurringTask(t);
+      renderKPIs();renderTable();renderSidePanels();
+    }
+  }
   catch(e){showError("Save failed: "+e.message);fetchTasks();}
 }
 
@@ -638,15 +668,23 @@ async function addTask(){
   const category=document.getElementById("new-task-cat")?.value||"Other";
   const due=document.getElementById("new-task-due")?.value||"";
   const priority="medium";
-  if(!name||!due){alert("Please fill in task name and due date.");return;}
+  const recurType=document.getElementById("new-task-recur")?.value||"";
+  const recurDayOfMonth=recurType==="by_date"?(parseInt(document.getElementById("recur-day-of-month")?.value)||1):null;
+  const recurDayOfWeek=recurType==="by_day"?(parseInt(document.getElementById("recur-day-of-week")?.value)||0):null;
+  // For recurring tasks, auto-set due date if not set
+  const finalDue = due || (recurType?getNextRecurDate(recurType,recurDayOfMonth,recurDayOfWeek):"");
+  if(!name||!finalDue){alert("Please fill in task name and due date.");return;}
   const btn=document.getElementById("add-btn");
   if(btn){btn.disabled=true;btn.textContent="Saving…";}
   try{
-    const created=await api("/tasks","POST",{name,owner:currentUser,category:category||"Other",due,priority,status:"To Do",progress:0});
+    const created=await api("/tasks","POST",{name,owner:currentUser,category:category||"Other",due:finalDue,priority,status:"To Do",progress:0,
+      recur_type:recurType||null, recur_day_of_month:recurDayOfMonth, recur_day_of_week:recurDayOfWeek});
     tasks=[...tasks,...(Array.isArray(created)?created:[created])];
     document.getElementById("new-task-name").value="";
     document.getElementById("new-task-due").value="";
     document.getElementById("new-task-cat").value="";
+    const recurSel=document.getElementById("new-task-recur"); if(recurSel) recurSel.value="";
+    const recurDetail=document.getElementById("task-recur-detail"); if(recurDetail) recurDetail.style.display="none";
 
     updateSyncLabel();renderKPIs();renderTable();renderSidePanels();
   }catch(e){showError("Could not add task: "+e.message);}
@@ -2087,6 +2125,88 @@ function loadCustomPaymentTypes(){
   });
 }
 
+
+// ── Recurring Tasks ───────────────────────────────────────────────────────────
+function toggleTaskRecurFields(){
+  const val = document.getElementById("new-task-recur")?.value||"";
+  const detail = document.getElementById("task-recur-detail");
+  const byDate = document.getElementById("recur-by-date-fields");
+  const byDay  = document.getElementById("recur-by-day-fields");
+  if(!detail) return;
+
+  if(val===""){
+    detail.style.display="none";
+  } else {
+    detail.style.display="flex";
+    // Populate day-of-month options
+    const domSel = document.getElementById("recur-day-of-month");
+    if(domSel && !domSel.options.length){
+      for(let i=1;i<=31;i++){
+        const o=document.createElement("option");
+        o.value=i; o.text=i+(i===1?"st":i===2?"nd":i===3?"rd":"th");
+        domSel.appendChild(o);
+      }
+    }
+    // Populate day-of-week options
+    const dowSel = document.getElementById("recur-day-of-week");
+    if(dowSel && !dowSel.options.length){
+      ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].forEach((d,i)=>{
+        const o=document.createElement("option"); o.value=i; o.text=d; dowSel.appendChild(o);
+      });
+    }
+    if(byDate) byDate.style.display = val==="by_date"?"flex":"none";
+    if(byDay)  byDay.style.display  = val==="by_day" ?"flex":"none";
+  }
+}
+
+function getNextRecurDate(recurType, dayOfMonth, dayOfWeek){
+  const now = new Date();
+  if(recurType==="by_date"){
+    // Next occurrence of this day in the month
+    let d = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
+    if(d <= now) d = new Date(now.getFullYear(), now.getMonth()+1, dayOfMonth);
+    return d.toISOString().split("T")[0];
+  }
+  if(recurType==="by_day"){
+    // Next occurrence of this weekday (0=Mon...6=Sun)
+    const jsDay = (dayOfWeek+1)%7; // convert Mon=0 to JS Sun=0
+    let d = new Date(now);
+    d.setDate(d.getDate()+1); // start from tomorrow
+    while(d.getDay()!==jsDay) d.setDate(d.getDate()+1);
+    return d.toISOString().split("T")[0];
+  }
+  return null;
+}
+
+async function createNextRecurringTask(t){
+  if(!t.recur_type) return;
+  const nextDue = getNextRecurDate(t.recur_type, t.recur_day_of_month, t.recur_day_of_week);
+  if(!nextDue) return;
+  try{
+    const created = await api("/tasks","POST",{
+      name: t.name,
+      owner: t.owner,
+      category: t.category,
+      due: nextDue,
+      status: "To Do",
+      progress: 0,
+      recur_type: t.recur_type,
+      recur_day_of_month: t.recur_day_of_month||null,
+      recur_day_of_week: t.recur_day_of_week!==null&&t.recur_day_of_week!==undefined ? t.recur_day_of_week : null,
+    });
+    tasks=[...tasks,...(Array.isArray(created)?created:[created])];
+    showRecurToast(t.name, nextDue);
+  }catch(e){ console.error("Could not create next recurring task:",e.message); }
+}
+
+function showRecurToast(name, date){
+  const toast=document.createElement("div");
+  toast.style.cssText="position:fixed;bottom:24px;right:24px;background:#276749;color:white;padding:12px 18px;border-radius:10px;font-size:0.82rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:2000;max-width:300px;";
+  toast.innerHTML=`🔁 Next recurring task created for <strong>${esc(name)}</strong> on ${fmtDate(date)}`;
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(), 4000);
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
   const app = document.getElementById("main-app");
@@ -2096,123 +2216,3 @@ if(currentUser){
   const savedTab = (_savedTab==="security" && !USERS[currentUser]?.superAdmin) ? "tasks" : _savedTab;
   // Load permissions from DB first so access control is correct before rendering
   loadPermissionsFromDB().finally(()=>{
-    buildStaticShell();
-    switchTab(savedTab);
-    requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{ app.style.opacity="1"; });
-    });
-    fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();fetchEscalations();
-  });
-}else{showLogin();}
-setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fetchEscalations();}},30000);
-</script>
-
-<!-- Payment Modal -->
-<div id="payment-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <h2 style="font-size:1rem;font-weight:700;color:#1a365d;">Schedule Payment</h2>
-      <button onclick="closePaymentModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div style="grid-column:1/-1;">
-        <label class="login-label">Payment Name</label>
-        <input class="inp" id="pm-name" placeholder="e.g. Office Rent" />
-      </div>
-      <div>
-        <label class="login-label">Type</label>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <select class="inp" id="pm-type" onchange="handlePaymentTypeChange(this.value)" style="flex:1;">
-            <option>Vendor Payment</option><option>Payroll</option><option>Invoice</option>
-            <option>Rent/Utilities</option><option>Tax</option><option>Loan</option><option>Other</option>
-            <option id="pm-type-custom-opt" style="display:none;font-style:italic;"></option>
-            <option value="__add_new__">➕ Add new type…</option>
-          </select>
-        </div>
-        <div id="pm-custom-type-row" style="display:none;margin-top:6px;display:none;">
-          <div style="display:flex;gap:6px;align-items:center;">
-            <input class="inp" id="pm-custom-type-input" placeholder="Enter new type name…" style="flex:1;" />
-            <button onclick="addCustomPaymentType()" style="padding:8px 14px;border-radius:8px;border:none;background:#2b6cb0;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;">Add</button>
-          </div>
-        </div>
-      </div>
-      <div>
-        <label class="login-label">Assigned To</label>
-        <select class="inp" id="pm-assigned">
-          <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
-        </select>
-      </div>
-      <div>
-        <label class="login-label">Amount</label>
-        <input class="inp" id="pm-amount" type="number" placeholder="0.00" />
-      </div>
-      <div>
-        <label class="login-label">Currency</label>
-        <select class="inp" id="pm-currency">
-          <option value="SGD">SGD</option><option value="MYR">MYR</option>
-          <option value="USD">USD</option><option value="EUR">EUR</option>
-        </select>
-      </div>
-      <div>
-        <label class="login-label">Next Due Date</label>
-        <input class="inp" id="pm-due" type="date" />
-      </div>
-      <div>
-        <label class="login-label">Recurrence</label>
-        <select class="inp" id="pm-recurrence" onchange="document.getElementById('pm-custom-row').style.display=this.value==='Custom'?'flex':'none';">
-          <option>One-time</option><option>Daily</option><option>Weekly</option>
-          <option>Fortnightly</option><option>Monthly</option><option>Quarterly</option>
-          <option>Yearly</option><option>Custom</option>
-        </select>
-      </div>
-      <div id="pm-custom-row" style="display:none;grid-column:1/-1;align-items:center;gap:8px;">
-        <label class="login-label" style="margin:0;white-space:nowrap;">Every</label>
-        <input class="inp" id="pm-custom-interval" type="number" placeholder="e.g. 10" style="width:80px;" />
-        <span style="font-size:0.82rem;color:#718096;">days</span>
-      </div>
-      <div>
-        <label class="login-label">Remind me</label>
-        <select class="inp" id="pm-reminder">
-          <option value="1">1 day before</option>
-          <option value="3" selected>3 days before</option>
-          <option value="5">5 days before</option>
-          <option value="7">7 days before</option>
-          <option value="14">14 days before</option>
-        </select>
-      </div>
-      <div style="grid-column:1/-1;">
-        <label class="login-label">Notes (optional)</label>
-        <textarea class="inp" id="pm-notes" placeholder="Vendor details, reference number…" style="min-height:60px;resize:vertical;"></textarea>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
-      <button class="btn btn-danger" onclick="closePaymentModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="savePayment()">Save Payment</button>
-    </div>
-  </div>
-</div>
-
-<!-- Escalation Modal -->
-<div id="esc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-      <h2 style="font-size:1rem;font-weight:700;color:#c53030;">⚡ Escalate Task</h2>
-      <button onclick="closeEscModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
-    </div>
-    <div id="esc-task-info" style="background:#f7fafc;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#4a5568;"></div>
-    <label class="login-label">Reassign to</label>
-    <select class="inp" id="esc-assignee" style="margin-bottom:12px;">
-      <option value="">Select team member…</option>
-      <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
-    </select>
-    <label class="login-label">Reason for escalation</label>
-    <textarea class="inp" id="esc-reason" placeholder="e.g. Blocked waiting for vendor response, reassigning to follow up…" style="min-height:80px;resize:vertical;margin-bottom:12px;"></textarea>
-
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-danger" onclick="closeEscModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmEscalation()" style="background:#c53030;">⚡ Escalate & Reassign</button>
-    </div>
-  </div>
-</div>
-</body>
-</html>
