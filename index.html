@@ -885,7 +885,7 @@ function renderDashboard(){
     const m = MODULES[key]; if(!m) return "";
     const innerHTML = buildModuleInner(key);
     return `<div class="dash-module${isHidden?" hidden-module":""}" data-key="${key}"
-      style="${m.size==="full"?"grid-column:1/-1":""};${isEditMode?"cursor:grab;":""}" >
+      style="${m.size==="full"?"grid-column:1/-1":""}">
       <div class="drag-handle">
         <div style="display:flex;align-items:center;gap:8px;">
           ${isEditMode?`<span class="drag-handle-icon" title="Drag to reorder" style="font-size:1.2rem;cursor:grab;color:#2b6cb0;background:#ebf8ff;border-radius:5px;padding:2px 6px;user-select:none;">⠿</span>`:""}
@@ -1113,84 +1113,80 @@ function renderDashboard(){
   if(isEditMode) requestAnimationFrame(()=>requestAnimationFrame(()=>initDashDrag()));
 }
 
-// ── Drag & Drop ───────────────────────────────────────────────────────────────
-let dashDragSrc = null;
+// ── Drag & Drop (mouse-based, no HTML5 drag API) ─────────────────────────────
+let _dragEl=null, _dragKey=null, _placeholder=null, _dragGrid=null;
 
 function initDashDrag(){
-  const grid = document.getElementById("dash-grid");
-  if(!grid) return;
-
-  grid.querySelectorAll(".dash-module").forEach(el=>{
-    el.setAttribute("draggable","true");
-
-    el.ondragstart = e=>{
-      dashDragSrc = el;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", el.dataset.key||"");
-      setTimeout(()=>{
-        el.style.opacity="0.4";
-        // Block child pointer events on ALL modules so drag enters work cleanly
-        grid.querySelectorAll(".dash-module").forEach(m=>m.classList.add("drag-active"));
-      },0);
-    };
-
-    el.ondragend = e=>{
-      el.style.opacity="1";
-      grid.querySelectorAll(".dash-module").forEach(m=>{
-        m.style.outline="";
-        m.style.transform="";
-        m.classList.remove("drag-active");
-      });
-      dashDragSrc = null;
-    };
-
-    el.ondragover = e=>{
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-    };
-
-    el.ondragenter = e=>{
-      e.preventDefault();
-      if(el !== dashDragSrc){
-        el.style.outline="2px solid #2b6cb0";
-        el.style.transform="scale(1.01)";
-      }
-    };
-
-    el.ondragleave = e=>{
-      // Only clear if leaving the element itself, not a child
-      if(!el.contains(e.relatedTarget)){
-        el.style.outline="";
-        el.style.transform="";
-      }
-    };
-
-    el.ondrop = e=>{
-      e.preventDefault();
-      e.stopPropagation();
-      el.style.outline="";
-      el.style.transform="";
-      if(!dashDragSrc||dashDragSrc===el) return;
-      const srcKey=dashDragSrc.dataset.key;
-      const tgtKey=el.dataset.key;
-      if(!srcKey||!tgtKey||srcKey===tgtKey) return;
-      const def={order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]};
-      const layout=JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser)||JSON.stringify(def));
-      const si=layout.order.indexOf(srcKey), ti=layout.order.indexOf(tgtKey);
-      if(si>-1&&ti>-1){
-        layout.order.splice(si,1);
-        layout.order.splice(ti,0,srcKey);
-        sessionStorage.setItem("dash_layout_"+currentUser,JSON.stringify(layout));
-        renderDashboard();
-      }
-    };
+  const grid=document.getElementById("dash-grid"); if(!grid)return;
+  _dragGrid=grid;
+  grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach(el=>{
+    const handle=el.querySelector(".drag-handle-icon");
+    if(!handle)return;
+    handle.style.cursor="grab";
+    handle.onmousedown=e=>startDrag(e,el);
   });
 }
 
-function dashDragStart(e,el){}
-function dashDragOver(e,el){ e.preventDefault(); }
-function dashDrop(e,el){ e.preventDefault(); }
-function dashDragEnd(e,el){}
+function startDrag(e,el){
+  e.preventDefault();
+  _dragEl=el;
+  _dragKey=el.dataset.key;
+  const rect=el.getBoundingClientRect();
+
+  // Create placeholder
+  _placeholder=document.createElement("div");
+  _placeholder.style.cssText=`width:${rect.width}px;height:${rect.height}px;background:#ebf8ff;border:2px dashed #2b6cb0;border-radius:12px;grid-column:${el.style.gridColumn||""};`;
+  el.parentNode.insertBefore(_placeholder,el.nextSibling);
+
+  // Float the dragged element
+  el.style.cssText+=`;position:fixed;z-index:9999;width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;box-shadow:0 8px 32px rgba(0,0,0,0.2);opacity:0.95;transition:none;pointer-events:none;`;
+
+  const offX=e.clientX-rect.left, offY=e.clientY-rect.top;
+
+  function onMove(ev){
+    el.style.left=(ev.clientX-offX)+"px";
+    el.style.top=(ev.clientY-offY)+"px";
+    // Find which module the cursor is over
+    el.style.pointerEvents="none";
+    const under=document.elementFromPoint(ev.clientX,ev.clientY);
+    el.style.pointerEvents="none";
+    const target=under?.closest(".dash-module");
+    if(target&&target!==el&&target!==_placeholder){
+      // Move placeholder next to target
+      const targetRect=target.getBoundingClientRect();
+      const after=ev.clientY>targetRect.top+targetRect.height/2;
+      if(after) target.parentNode.insertBefore(_placeholder,target.nextSibling);
+      else target.parentNode.insertBefore(_placeholder,target);
+    }
+  }
+
+  function onUp(){
+    document.removeEventListener("mousemove",onMove);
+    document.removeEventListener("mouseup",onUp);
+    // Reset element style
+    el.style.position="";el.style.zIndex="";el.style.width="";
+    el.style.left="";el.style.top="";el.style.boxShadow="";
+    el.style.opacity="";el.style.pointerEvents="";el.style.transition="";
+    // Insert el where placeholder is
+    _placeholder.parentNode.insertBefore(el,_placeholder);
+    _placeholder.remove();
+    _placeholder=null;
+    // Save new order
+    const newOrder=[..._dragGrid.querySelectorAll(".dash-module:not(.hidden-module)")].map(m=>m.dataset.key).filter(Boolean);
+    const def={order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]};
+    const layout=JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser)||JSON.stringify(def));
+    // Merge: keep hidden ones, update order of visible
+    const allKeys=[...new Set([...newOrder,...layout.order])];
+    layout.order=allKeys;
+    sessionStorage.setItem("dash_layout_"+currentUser,JSON.stringify(layout));
+    _dragEl=null; _dragKey=null;
+    renderDashboard();
+  }
+
+  document.addEventListener("mousemove",onMove);
+  document.addEventListener("mouseup",onUp);
+}
+
 
 function toggleDashEditMode(){
   const cur = sessionStorage.getItem("dashEditMode")==="true";
