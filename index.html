@@ -261,9 +261,9 @@ function showLogin(errMsg){
       <div class="login-sub">Please sign in to continue</div>
       ${errMsg?`<div class="login-err">${esc(errMsg)}</div>`:""}
       <label class="login-label">Username</label>
-      <input class="login-inp" id="login-user" type="text" placeholder="e.g. Syaqil" onkeydown="if(event.key==='Enter')login();" autofocus />
+      <input class="login-inp" id="login-user" type="text" placeholder="" onkeydown="if(event.key==='Enter')login();" autofocus />
       <label class="login-label">Password</label>
-      <input class="login-inp" id="login-pass" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')login();" />
+      <input class="login-inp" id="login-pass" type="password" placeholder="" onkeydown="if(event.key==='Enter')login();" />
       <button class="login-btn" onclick="login()">Sign In →</button>
     </div></div>`;
 }
