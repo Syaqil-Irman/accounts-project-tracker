@@ -828,7 +828,7 @@ function renderDashboard(){
         {label:"In Progress",val:inProg,color:"#d69e2e",valCol:"#744210"},
         {label:"Blocked",val:blocked,color:"#e53e3e",valCol:"#822727"},
         {label:"Due Soon",val:dueSoon,color:"#6b46c1",valCol:"#44337a"},
-        {label:"Action Items",val:pendingActions+" pending",color:"#c05621",valCol:"#7b341e"},
+        {label:"Action Items",val:pendingActions,color:"#c05621",valCol:"#7b341e"},
       ].map(k=>`<div style="background:white;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.07);border-top:3px solid ${k.color};">
         <div style="font-size:0.65rem;color:#718096;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${k.label}</div>
         <div style="font-size:1.5rem;font-weight:800;color:${k.valCol};line-height:1;">${k.val}</div>
