@@ -230,10 +230,10 @@ const DEFAULT_PERMISSIONS = {
 };
 
 function loadPermissions(){
-  try{ const s=sessionStorage.getItem("permissions"); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS)); }
+  try{ const s=localStorage.getItem("permissions"); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS)); }
   catch(e){ return JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS)); }
 }
-function savePermissions(perms){ sessionStorage.setItem("permissions",JSON.stringify(perms)); }
+function savePermissions(perms){ localStorage.setItem("permissions",JSON.stringify(perms)); }
 let PERMISSIONS = loadPermissions();
 
 function can(user, tab, action){
@@ -260,7 +260,7 @@ let tasks=[], deleteLog=[], meetings=[], actionItems=[];
 let lastSync=null, saving=false, showDeleteLog=false;
 function loadFilters(){
   try{
-    const f=JSON.parse(sessionStorage.getItem("filters")||"{}");
+    const f=JSON.parse(localStorage.getItem("m2_filters")||"{}");
     return {
       owners: new Set(f.owners||[]),
       statuses: new Set(f.statuses||[]),
@@ -269,7 +269,7 @@ function loadFilters(){
   }catch(e){ return {owners:new Set(),statuses:new Set(),cats:new Set()}; }
 }
 function saveFilters(){
-  sessionStorage.setItem("filters",JSON.stringify({
+  localStorage.setItem("m2_filters",JSON.stringify({
     owners:[...filterOwners],
     statuses:[...filterStatuses],
     cats:[...filterCats]
@@ -324,7 +324,7 @@ function login(){
   app.style.display="block";
   app.style.opacity="0";
   buildStaticShell();
-  const savedTab2=sessionStorage.getItem("activeTab")||"tasks";
+  const savedTab2=localStorage.getItem("m2_activeTab_"+(sessionStorage.getItem("currentUser")||""))||"tasks";
   switchTab(savedTab2);
   requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ app.style.opacity="1"; }); });
   fetchTasks(); fetchDeleteLog(); fetchMeetings(); fetchPayments(); fetchEscalations();
@@ -339,7 +339,7 @@ function logout(){
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab){
   activeTab=tab;
-  sessionStorage.setItem("activeTab",tab);
+  localStorage.setItem("m2_activeTab_"+(currentUser||""),tab);
   document.getElementById("tab-dashboard").style.display=tab==="dashboard"?"block":"none";
   document.getElementById("tab-tasks").style.display=tab==="tasks"?"block":"none";
   document.getElementById("tab-meeting").style.display=tab==="meeting"?"block":"none";
@@ -856,11 +856,11 @@ function renderDashboard(){
   };
 
   // Load saved layout order + visibility
-  let layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||"null");
+  let layout = JSON.parse(localStorage.getItem(`dash_layout_${currentUser}`)||"null");
   if(!layout){ layout={ order:Object.keys(MODULES), hidden:[] }; }
   // Ensure all modules exist in order
   Object.keys(MODULES).forEach(k=>{ if(!layout.order.includes(k)) layout.order.push(k); });
-  const saveLayout=()=>sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
+  const saveLayout=()=>localStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
 
   // Filter modules user can see
   const visibleOrder = layout.order.filter(k=>{
@@ -1065,7 +1065,7 @@ function renderDashboard(){
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const isEditMode = sessionStorage.getItem("dashEditMode")==="true";
+  const isEditMode = localStorage.getItem("m2_dashEditMode")==="true";
 
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1211,9 +1211,9 @@ function startDrag(e, dragEl, grid){
     // Save order
     const newOrder = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")].map(m=>m.dataset.key).filter(Boolean);
     const def = { order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"], hidden:[] };
-    const layout = JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser) || JSON.stringify(def));
+    const layout = JSON.parse(localStorage.getItem("dash_layout_"+currentUser) || JSON.stringify(def));
     layout.order = [...new Set([...newOrder, ...layout.order])];
-    sessionStorage.setItem("dash_layout_"+currentUser, JSON.stringify(layout));
+    localStorage.setItem("dash_layout_"+currentUser, JSON.stringify(layout));
 
     // Re-init drag handles without re-rendering
     setTimeout(()=>initDashDrag(), 250);
@@ -1225,22 +1225,22 @@ function startDrag(e, dragEl, grid){
 
 
 function toggleDashEditMode(){
-  const cur = sessionStorage.getItem("dashEditMode")==="true";
-  sessionStorage.setItem("dashEditMode", (!cur).toString());
+  const cur = localStorage.getItem("m2_dashEditMode")==="true";
+  localStorage.setItem("m2_dashEditMode", (!cur).toString());
   renderDashboard();
 }
 
 function dashToggleVisibility(key){
-  const layout = JSON.parse(sessionStorage.getItem(`dash_layout_${currentUser}`)||`{"order":[],"hidden":[]}`);
+  const layout = JSON.parse(localStorage.getItem(`dash_layout_${currentUser}`)||`{"order":[],"hidden":[]}`);
   const idx = layout.hidden.indexOf(key);
   if(idx>-1) layout.hidden.splice(idx,1);
   else layout.hidden.push(key);
-  sessionStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
+  localStorage.setItem(`dash_layout_${currentUser}`,JSON.stringify(layout));
   renderDashboard();
 }
 
 function dashResetLayout(){
-  sessionStorage.removeItem(`dash_layout_${currentUser}`);
+  localStorage.removeItem(`dash_layout_${currentUser}`);
   renderDashboard();
 }
 
@@ -1764,7 +1764,7 @@ function renderSecurity(){
 }
 
 // Permission helpers
-let permLog = JSON.parse(sessionStorage.getItem("permLog")||"[]");
+let permLog = JSON.parse(localStorage.getItem("m2_permLog")||"[]");
 let unsavedUsers = new Set(); // track which users have unsaved changes
 
 async function saveUserPermissions(username){
@@ -1810,7 +1810,7 @@ function logPermChange(msg){
   const time=new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   permLog.unshift({time,msg});
   if(permLog.length>50) permLog=permLog.slice(0,50);
-  sessionStorage.setItem("permLog",JSON.stringify(permLog));
+  localStorage.setItem("m2_permLog",JSON.stringify(permLog));
 }
 
 function togglePerm(username,tab,action,val){
@@ -2024,10 +2024,10 @@ function renderEscLog(){
 
 // ── Custom Payment Types ──────────────────────────────────────────────────────
 function getCustomPaymentTypes(){
-  return JSON.parse(sessionStorage.getItem("customPaymentTypes")||"[]");
+  return JSON.parse(localStorage.getItem("m2_customPaymentTypes")||"[]");
 }
 function saveCustomPaymentTypes(types){
-  sessionStorage.setItem("customPaymentTypes", JSON.stringify(types));
+  localStorage.setItem("m2_customPaymentTypes", JSON.stringify(types));
 }
 
 function handlePaymentTypeChange(val){
@@ -2091,7 +2091,7 @@ function loadCustomPaymentTypes(){
 if(currentUser){
   const app = document.getElementById("main-app");
   app.style.display="block";
-  const _savedTab = sessionStorage.getItem("activeTab")||"tasks";
+  const _savedTab = localStorage.getItem("m2_activeTab_"+(sessionStorage.getItem("currentUser")||""))||"tasks";
   // Validate: non-superAdmins can't access security tab
   const savedTab = (_savedTab==="security" && !USERS[currentUser]?.superAdmin) ? "tasks" : _savedTab;
   // Load permissions from DB first so access control is correct before rendering
