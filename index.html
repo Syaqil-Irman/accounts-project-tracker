@@ -238,7 +238,25 @@ const CATEGORIES = ["AR","AP","Payroll","Reporting","Reconciliation","Other"];
 
 let tasks=[], deleteLog=[], meetings=[], actionItems=[];
 let lastSync=null, saving=false, showDeleteLog=false;
-let filterOwners=new Set(), filterStatuses=new Set(), filterCats=new Set();
+function loadFilters(){
+  try{
+    const f=JSON.parse(sessionStorage.getItem("filters")||"{}");
+    return {
+      owners: new Set(f.owners||[]),
+      statuses: new Set(f.statuses||[]),
+      cats: new Set(f.cats||[])
+    };
+  }catch(e){ return {owners:new Set(),statuses:new Set(),cats:new Set()}; }
+}
+function saveFilters(){
+  sessionStorage.setItem("filters",JSON.stringify({
+    owners:[...filterOwners],
+    statuses:[...filterStatuses],
+    cats:[...filterCats]
+  }));
+}
+const _f=loadFilters();
+let filterOwners=_f.owners, filterStatuses=_f.statuses, filterCats=_f.cats;
 let currentUser=sessionStorage.getItem("currentUser")||null;
 let activeTab="tasks";
 
@@ -417,10 +435,11 @@ function toggleFilter(filterId,value,checked){
   if(filterId==="owner"){checked?filterOwners.add(value):filterOwners.delete(value);}
   if(filterId==="status"){checked?filterStatuses.add(value):filterStatuses.delete(value);}
   if(filterId==="cat"){checked?filterCats.add(value):filterCats.delete(value);}
+  saveFilters();
   renderTable();renderSidePanels();buildFilterBar();
 }
 
-function resetFilters(){filterOwners.clear();filterStatuses.clear();filterCats.clear();renderTable();renderSidePanels();buildFilterBar();}
+function resetFilters(){filterOwners.clear();filterStatuses.clear();filterCats.clear();saveFilters();renderTable();renderSidePanels();buildFilterBar();}
 
 function buildFilterBar(){
   const ownerFilter=(USERS[currentUser]?.superAdmin||USERS[currentUser]?.admin)?buildCheckboxDropdown("owner","Owner",Object.keys(TEAM),filterOwners,o=>TEAM[o]?.color):"";
