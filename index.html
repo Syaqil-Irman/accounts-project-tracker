@@ -1331,7 +1331,7 @@ async function savePayment(){
   const assigned_to=document.getElementById("pm-assigned").value;
   const notes=document.getElementById("pm-notes").value.trim();
   if(!name||!next_due){alert("Please fill in payment name and due date.");return;}
-  const payload={name,type,amount:amount?parseFloat(amount):null,currency,next_due,recurrence,custom_interval,reminder_days,assigned_to,notes,status:"pending"};
+  const payload={name,type,amount:amount?parseFloat(amount):null,currency,next_due,recurrence,custom_interval:custom_interval?parseInt(custom_interval):null,reminder_days,assigned_to,notes,status:"pending"};
   try{
     if(editingPayment){
       await api(`/payments?id=eq.${editingPayment.id}`,"PATCH",payload);
