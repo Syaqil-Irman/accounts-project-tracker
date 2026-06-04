@@ -35,7 +35,7 @@
   .kpi .value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
   .kpi .sub { font-size: 0.72rem; color: #a0aec0; margin-top: 4px; }
   .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; padding: 18px 28px 32px; }
-  .add-row { display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr auto; gap: 8px; margin-top: 14px; align-items: center; }
+  .add-row { display: grid; grid-template-columns: 1.8fr 1fr 1fr auto; gap: 8px; margin-top: 14px; align-items: center; }
   .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   /* Tabs */
   .tab-bar { background: #1a365d; padding: 0 28px; display: flex; gap: 2px; align-items: flex-end; }
@@ -412,11 +412,7 @@ function buildStaticShell(){
       ${CATEGORIES.map(c=>`<option>${esc(c)}</option>`).join("")}
     </select>
     <input class="inp" id="new-task-due" type="date" />
-    <select class="inp" id="new-task-priority">
-      <option value="high">🔴 High</option>
-      <option value="medium" selected>🟡 Medium</option>
-      <option value="low">🟢 Low</option>
-    </select>
+
     ${can(currentUser,'tasks','add')?`<button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`:`<button class="btn" disabled style="background:#e2e8f0;color:#a0aec0;cursor:not-allowed;" title="No permission">+ Add</button>`}`;
 }
 
@@ -522,7 +518,7 @@ function renderTable(){
     const cc=CAT_COLORS[t.category]||"#718096";
     const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
     return `<tr>
-      <td><div style="width:8px;height:8px;border-radius:50%;background:${priColor};display:inline-block;" title="${esc(t.priority)}"></div></td>
+
       <td style="max-width:180px;" title="${esc(t.name)}">
         <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</div>
         ${(()=>{ const e=getTaskEscalation(t.id); return e?`<div style="font-size:0.67rem;color:#c53030;margin-top:2px;">⚡ Escalated from <strong>${esc(e.from_owner)}</strong> by ${esc(e.escalated_by)}</div>`:""; })()}
@@ -550,7 +546,7 @@ function renderTable(){
       </td>
     </tr>`;
   }).join("");
-  document.getElementById("task-table-wrap").innerHTML=`<table><thead><tr><th>Pri</th><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById("task-table-wrap").innerHTML=`<table><thead><tr><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function renderSidePanels(){
@@ -592,16 +588,14 @@ function renderSidePanels(){
 function renderDeleteLog(){
   const sec=document.getElementById("delete-log-section");
   const rows=deleteLog.length===0?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:12px 0;">No tasks have been deleted yet.</p>`:
-    `<table><thead><tr><th>Task</th><th>Category</th><th>Owner</th><th>Due</th><th>Priority</th><th>Status at Deletion</th><th>Deleted At</th></tr></thead><tbody>
+    `<table><thead><tr><th>Task</th><th>Category</th><th>Owner</th><th>Due</th><th>Status at Deletion</th><th>Deleted At</th></tr></thead><tbody>
     ${deleteLog.map(t=>{
       const cc=CAT_COLORS[t.category]||"#718096",m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"},sc=STATUS_COLORS[t.status]||"#718096";
-      const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
       return `<tr style="opacity:0.75;">
         <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:line-through;color:#718096;" title="${esc(t.name)}">${esc(t.name)}</td>
         <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
         <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;"><div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div><span style="font-size:0.73rem;font-weight:600;color:${m.pillText};">${esc(t.owner)}</span></div></td>
         <td style="font-size:0.76rem;color:#718096;">${fmtDate(t.due)}</td>
-        <td style="font-size:0.75rem;color:#718096;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:8px;height:8px;border-radius:50%;background:${priColor};"></div>${esc(t.priority)}</div></td>
         <td><span style="font-size:0.72rem;font-weight:600;color:${sc};background:${sc}18;padding:2px 8px;border-radius:10px;">${esc(t.status)}</span></td>
         <td style="font-size:0.75rem;color:#a0aec0;white-space:nowrap;">${esc(t.deletedAt)}</td>
       </tr>`;
@@ -644,7 +638,7 @@ async function addTask(){
   const name=(document.getElementById("new-task-name")?.value||"").trim();
   const category=document.getElementById("new-task-cat")?.value||"Other";
   const due=document.getElementById("new-task-due")?.value||"";
-  const priority=document.getElementById("new-task-priority")?.value||"medium";
+  const priority="medium";
   if(!name||!due){alert("Please fill in task name and due date.");return;}
   const btn=document.getElementById("add-btn");
   if(btn){btn.disabled=true;btn.textContent="Saving…";}
@@ -654,7 +648,7 @@ async function addTask(){
     document.getElementById("new-task-name").value="";
     document.getElementById("new-task-due").value="";
     document.getElementById("new-task-cat").value="";
-    document.getElementById("new-task-priority").value="medium";
+
     updateSyncLabel();renderKPIs();renderTable();renderSidePanels();
   }catch(e){showError("Could not add task: "+e.message);}
   finally{if(btn){btn.disabled=false;btn.textContent="+ Add";}}
@@ -1931,7 +1925,7 @@ function openEscModal(taskId, isAuto=false){
   });
   document.getElementById("esc-assignee").value="";
   document.getElementById("esc-reason").value=isAuto?(t.status==="Blocked"?"Task is blocked and requires escalation.":"Task is overdue and requires urgent attention."):"";
-  document.getElementById("esc-priority").value=t.priority||"high";
+
   const modal = document.getElementById("esc-modal");
   modal.style.display="flex";
 }
@@ -1944,7 +1938,7 @@ function closeEscModal(){
 async function confirmEscalation(){
   const assignee = document.getElementById("esc-assignee").value;
   const reason = document.getElementById("esc-reason").value.trim();
-  const priority = document.getElementById("esc-priority").value;
+  const priority = "medium";
   if(!assignee){ alert("Please select who to reassign to."); return; }
   if(!reason){ alert("Please provide a reason for escalation."); return; }
   const t = tasks.find(x=>x.id===escalatingTaskId); if(!t) return;
@@ -2132,12 +2126,7 @@ setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fe
     </select>
     <label class="login-label">Reason for escalation</label>
     <textarea class="inp" id="esc-reason" placeholder="e.g. Blocked waiting for vendor response, reassigning to follow up…" style="min-height:80px;resize:vertical;margin-bottom:12px;"></textarea>
-    <label class="login-label">Priority after escalation</label>
-    <select class="inp" id="esc-priority" style="margin-bottom:20px;">
-      <option value="high">🔴 High</option>
-      <option value="medium">🟡 Medium</option>
-      <option value="low">🟢 Low</option>
-    </select>
+
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn btn-danger" onclick="closeEscModal()">Cancel</button>
       <button class="btn btn-primary" onclick="confirmEscalation()" style="background:#c53030;">⚡ Escalate & Reassign</button>
