@@ -78,7 +78,7 @@
   <div id="app-header"></div>
   <div id="error-bar"></div>
   <!-- Tab content -->
-  <div id="tab-tasks">
+  <div id="tab-tasks" style="display:none;">
     <div class="kpi-grid" id="kpi-section"></div>
     <div class="main-grid">
       <div class="card">
@@ -1530,11 +1530,10 @@ function changePassword(username){
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
   document.getElementById("main-app").style.display="block";
-  buildStaticShell();
   const savedTab = sessionStorage.getItem("activeTab")||"tasks";
+  buildStaticShell();
+  switchTab(savedTab);
   fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
-  // Restore tab after shell is built
-  setTimeout(()=>switchTab(savedTab), 50);
 }else{showLogin();}
 setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}},30000);
 </script>
