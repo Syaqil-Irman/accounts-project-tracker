@@ -348,9 +348,10 @@ function switchTab(tab){
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
   const activeBtn=document.getElementById("tab-btn-"+tab);
   if(activeBtn) activeBtn.classList.add("active");
+  else if(tab==="security"&&!USERS[currentUser]?.superAdmin){ switchTab("tasks"); return; }
   if(tab==="dashboard") renderDashboard();
   if(tab==="payments"){ renderPaymentsCalendar(); renderPaymentsList(); checkPaymentAlerts(); }
-  if(tab==="security") renderSecurity();
+  if(tab==="security"){ try{ renderSecurity(); }catch(e){ console.error("Security render error:",e); showError("Could not render Security tab: "+e.message); } }
 }
 
 // ── Static shell ──────────────────────────────────────────────────────────────
@@ -1542,6 +1543,9 @@ async function deletePayment(id){
 // ── Security ──────────────────────────────────────────────────────────────────
 function renderSecurity(){
   const el=document.getElementById("security-content"); if(!el)return;
+  if(!currentUser||!USERS[currentUser]?.superAdmin){ el.innerHTML=`<p style="color:#c53030;padding:20px;">Access denied.</p>`; return; }
+  if(!PERMISSIONS) PERMISSIONS=loadPermissions();
+  if(!permLog) permLog=[];
   const tabs=["tasks","payments","meetings","dashboard"];
   const actions=["view","add","edit","del"];
   const actionLabels={view:"View",add:"Add",edit:"Edit",del:"Delete"};
@@ -1938,7 +1942,9 @@ function renderEscLog(){
 if(currentUser){
   const app = document.getElementById("main-app");
   app.style.display="block";
-  const savedTab = sessionStorage.getItem("activeTab")||"tasks";
+  const _savedTab = sessionStorage.getItem("activeTab")||"tasks";
+  // Validate: non-superAdmins can't access security tab
+  const savedTab = (_savedTab==="security" && !USERS[currentUser]?.superAdmin) ? "tasks" : _savedTab;
   // Load permissions from DB first so access control is correct before rendering
   loadPermissionsFromDB().finally(()=>{
     buildStaticShell();
