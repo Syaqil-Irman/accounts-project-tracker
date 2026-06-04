@@ -67,11 +67,11 @@
   .logout-btn:hover { background:rgba(255,255,255,0.25); }
   /* Dashboard drag & drop */
   .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; transition:box-shadow .2s, transform .2s, opacity .2s; position:relative; }
-  .dash-module.dragging { opacity:0.4; transform:scale(0.97); }
-  .dash-module.drag-over { box-shadow:0 0 0 3px #2b6cb0 !important; transform:scale(1.01); }
-  /* Block children from intercepting drag events */
-  .dash-module.drag-active * { pointer-events:none; }
+  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; position:relative; will-change:transform; }
+  /* Edit mode wobble */
+  @keyframes editWobble { 0%,100%{transform:rotate(-0.5deg)} 50%{transform:rotate(0.5deg)} }
+  .dash-module.edit-mode { animation: editWobble 0.5s ease-in-out infinite; }
+  .dash-module.edit-mode:hover { animation: none; transform:scale(1.02); box-shadow:0 4px 16px rgba(0,0,0,0.12); }
   .dash-module.hidden-module { display:none; }
   .drag-handle { display:flex; align-items:center; gap:6px; padding:13px 18px; border-bottom:1px solid #e2e8f0; justify-content:space-between; }
   .drag-handle h3 { font-size:0.88rem; font-weight:700; color:#2d3748; }
@@ -1113,78 +1113,140 @@ function renderDashboard(){
   if(isEditMode) requestAnimationFrame(()=>requestAnimationFrame(()=>initDashDrag()));
 }
 
-// ── Drag & Drop (mouse-based, no HTML5 drag API) ─────────────────────────────
-let _dragEl=null, _dragKey=null, _placeholder=null, _dragGrid=null;
+// ── Drag & Drop — iOS-style smooth rearrange ─────────────────────────────────
+let _drag = null; // active drag state
 
 function initDashDrag(){
-  const grid=document.getElementById("dash-grid"); if(!grid)return;
-  _dragGrid=grid;
-  grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach(el=>{
-    const handle=el.querySelector(".drag-handle-icon");
-    if(!handle)return;
-    handle.style.cursor="grab";
-    handle.onmousedown=e=>startDrag(e,el);
+  const grid = document.getElementById("dash-grid");
+  if(!grid) return;
+
+  // Add transition to all modules for smooth reorder animation
+  grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach((el, i)=>{
+    el.style.transition = "transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease";
+    el.classList.add("edit-mode");
+    // Stagger wobble so cards don't all move in sync (iOS style)
+    el.style.animationDelay = (i * 0.07) + "s";
+    const handle = el.querySelector(".drag-handle-icon");
+    if(handle){
+      handle.style.cursor = "grab";
+      handle.onmousedown = e => _initDrag(e, el, grid);
+    }
   });
 }
 
-function startDrag(e,el){
+function _initDrag(e, el, grid){
   e.preventDefault();
-  _dragEl=el;
-  _dragKey=el.dataset.key;
-  const rect=el.getBoundingClientRect();
+  e.stopPropagation();
 
-  // Create placeholder
-  _placeholder=document.createElement("div");
-  _placeholder.style.cssText=`width:${rect.width}px;height:${rect.height}px;background:#ebf8ff;border:2px dashed #2b6cb0;border-radius:12px;grid-column:${el.style.gridColumn||""};`;
-  el.parentNode.insertBefore(_placeholder,el.nextSibling);
+  const allModules = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")];
+  const rect = el.getBoundingClientRect();
+  const offX = e.clientX - rect.left;
+  const offY = e.clientY - rect.top;
+  const scrollY = window.scrollY;
 
-  // Float the dragged element
-  el.style.cssText+=`;position:fixed;z-index:9999;width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;box-shadow:0 8px 32px rgba(0,0,0,0.2);opacity:0.95;transition:none;pointer-events:none;`;
+  // Create ghost — a visual clone that floats
+  const ghost = el.cloneNode(true);
+  ghost.style.cssText = `
+    position:fixed; z-index:9999; width:${rect.width}px; height:${rect.height}px;
+    left:${rect.left}px; top:${rect.top}px;
+    pointer-events:none; border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15);
+    transform:scale(1.04) rotate(1deg); opacity:0.92;
+    transition:box-shadow 0.15s, transform 0.15s;
+    background:white;
+  `;
+  document.body.appendChild(ghost);
 
-  const offX=e.clientX-rect.left, offY=e.clientY-rect.top;
+  // Pause wobble while dragging
+  grid.querySelectorAll(".dash-module").forEach(m=>{ m.classList.remove("edit-mode"); m.style.animationDelay=""; });
+  // Dim the original
+  el.style.opacity = "0.25";
+  el.style.transform = "scale(0.97)";
+  el.style.transition = "opacity 0.15s, transform 0.15s";
+
+  let currentOrder = allModules.map(m => m.dataset.key);
+  let lastSwapIdx = allModules.indexOf(el);
 
   function onMove(ev){
-    el.style.left=(ev.clientX-offX)+"px";
-    el.style.top=(ev.clientY-offY)+"px";
-    // Find which module the cursor is over
-    el.style.pointerEvents="none";
-    const under=document.elementFromPoint(ev.clientX,ev.clientY);
-    el.style.pointerEvents="none";
-    const target=under?.closest(".dash-module");
-    if(target&&target!==el&&target!==_placeholder){
-      // Move placeholder next to target
-      const targetRect=target.getBoundingClientRect();
-      const after=ev.clientY>targetRect.top+targetRect.height/2;
-      if(after) target.parentNode.insertBefore(_placeholder,target.nextSibling);
-      else target.parentNode.insertBefore(_placeholder,target);
+    // Move ghost
+    ghost.style.left = (ev.clientX - offX) + "px";
+    ghost.style.top  = (ev.clientY - offY) + "px";
+
+    // Find which module the ghost centre is over
+    const ghostCX = ev.clientX - offX + rect.width/2;
+    const ghostCY = ev.clientY - offY + rect.height/2;
+
+    let closestIdx = -1, closestDist = Infinity;
+    allModules.forEach((m, i) => {
+      if(m === el) return;
+      const r = m.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+      const dist = Math.hypot(ghostCX - cx, ghostCY - cy);
+      if(dist < closestDist){ closestDist = dist; closestIdx = i; }
+    });
+
+    if(closestIdx === -1) return;
+    const targetEl = allModules[closestIdx];
+    const currentIdx = allModules.indexOf(el);
+
+    if(closestIdx !== lastSwapIdx){
+      lastSwapIdx = closestIdx;
+      // Swap in DOM with animation
+      if(closestIdx < currentIdx){
+        grid.insertBefore(el, targetEl);
+      } else {
+        grid.insertBefore(el, targetEl.nextSibling);
+      }
+      // Wobble neighbours
+      allModules.forEach((m,i) => {
+        if(m===el) return;
+        const newR = m.getBoundingClientRect();
+        m.style.transition = "transform 0.18s cubic-bezier(0.34,1.56,0.64,1)";
+        m.style.transform = "scale(0.97)";
+        setTimeout(()=>{ m.style.transform = ""; }, 180);
+      });
     }
   }
 
   function onUp(){
-    document.removeEventListener("mousemove",onMove);
-    document.removeEventListener("mouseup",onUp);
-    // Reset element style
-    el.style.position="";el.style.zIndex="";el.style.width="";
-    el.style.left="";el.style.top="";el.style.boxShadow="";
-    el.style.opacity="";el.style.pointerEvents="";el.style.transition="";
-    // Insert el where placeholder is
-    _placeholder.parentNode.insertBefore(el,_placeholder);
-    _placeholder.remove();
-    _placeholder=null;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+
+    // Snap ghost back to el position with animation
+    const finalRect = el.getBoundingClientRect();
+    ghost.style.transition = "left 0.2s cubic-bezier(0.34,1.56,0.64,1), top 0.2s cubic-bezier(0.34,1.56,0.64,1), transform 0.2s, opacity 0.2s";
+    ghost.style.left = finalRect.left + "px";
+    ghost.style.top  = finalRect.top  + "px";
+    ghost.style.transform = "scale(1) rotate(0deg)";
+    ghost.style.opacity = "0";
+
+    // Restore original
+    el.style.opacity = "1";
+    el.style.transform = "";
+    el.style.transition = "opacity 0.2s, transform 0.2s";
+
+    setTimeout(()=>{
+      ghost.remove();
+      // Restore wobble animation
+      grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach((m,i)=>{
+        m.style.transform = "";
+        m.style.transition = "transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease";
+        m.classList.add("edit-mode");
+        m.style.animationDelay = (i * 0.07) + "s";
+      });
+    }, 220);
+
     // Save new order
-    const newOrder=[..._dragGrid.querySelectorAll(".dash-module:not(.hidden-module)")].map(m=>m.dataset.key).filter(Boolean);
-    const def={order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]};
-    const layout=JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser)||JSON.stringify(def));
-    // Merge: keep hidden ones, update order of visible
-    const allKeys=[...new Set([...newOrder,...layout.order])];
-    layout.order=allKeys;
-    sessionStorage.setItem("dash_layout_"+currentUser,JSON.stringify(layout));
-    _dragEl=null; _dragKey=null;
-    renderDashboard();
+    const newOrder = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")].map(m=>m.dataset.key).filter(Boolean);
+    const def = {order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]};
+    const layout = JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser)||JSON.stringify(def));
+    layout.order = [...new Set([...newOrder, ...layout.order])];
+    sessionStorage.setItem("dash_layout_"+currentUser, JSON.stringify(layout));
   }
 
-  document.addEventListener("mousemove",onMove);
-  document.addEventListener("mouseup",onUp);
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup",  onUp);
 }
 
 
