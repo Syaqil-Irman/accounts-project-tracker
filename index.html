@@ -1541,6 +1541,7 @@ function openPaymentModal(id){
   editingPayment=p||null;
   const modal=document.getElementById("payment-modal");
   if(!modal)return;
+  loadCustomPaymentTypes();
   document.getElementById("pm-name").value=p?.name||"";
   document.getElementById("pm-type").value=p?.type||"Vendor Payment";
   document.getElementById("pm-amount").value=p?.amount||"";
@@ -1554,7 +1555,12 @@ function openPaymentModal(id){
   document.getElementById("pm-custom-row").style.display=((p?.recurrence||"One-time")==="Custom")?"flex":"none";
   modal.style.display="flex";
 }
-function closePaymentModal(){ document.getElementById("payment-modal").style.display="none"; editingPayment=null; }
+function closePaymentModal(){
+  document.getElementById("payment-modal").style.display="none";
+  const row=document.getElementById("pm-custom-type-row");
+  if(row) row.style.display="none";
+  editingPayment=null;
+}
 
 async function savePayment(){
   const name=document.getElementById("pm-name").value.trim();
@@ -2015,6 +2021,72 @@ function renderEscLog(){
   </div>
   <div style="display:none;" class="card-body">${rows}</div></div>`;
 }
+
+// ── Custom Payment Types ──────────────────────────────────────────────────────
+function getCustomPaymentTypes(){
+  return JSON.parse(sessionStorage.getItem("customPaymentTypes")||"[]");
+}
+function saveCustomPaymentTypes(types){
+  sessionStorage.setItem("customPaymentTypes", JSON.stringify(types));
+}
+
+function handlePaymentTypeChange(val){
+  const row = document.getElementById("pm-custom-type-row");
+  if(val === "__add_new__"){
+    row.style.display = "block";
+    document.getElementById("pm-custom-type-input").focus();
+    // Reset select to first option so it doesn't show "Add new type"
+    document.getElementById("pm-type").value = "Vendor Payment";
+  } else {
+    row.style.display = "none";
+  }
+}
+
+function addCustomPaymentType(){
+  const input = document.getElementById("pm-custom-type-input");
+  const name = input.value.trim();
+  if(!name){ alert("Please enter a type name."); return; }
+
+  // Save to session
+  const types = getCustomPaymentTypes();
+  if(!types.includes(name)) types.push(name);
+  saveCustomPaymentTypes(types);
+
+  // Add to PAYMENT_TYPES array and CAT_COLORS
+  if(!PAYMENT_TYPES.includes(name)) PAYMENT_TYPES.push(name);
+  if(!PAYMENT_COLORS[name]) PAYMENT_COLORS[name] = "#718096";
+
+  // Add to the select dropdown
+  const sel = document.getElementById("pm-type");
+  // Check if already exists
+  const exists = [...sel.options].some(o=>o.value===name);
+  if(!exists){
+    const opt = document.createElement("option");
+    opt.value = name; opt.text = name;
+    // Insert before "Add new type…" option
+    sel.insertBefore(opt, sel.options[sel.options.length-1]);
+  }
+  sel.value = name;
+  input.value = "";
+  document.getElementById("pm-custom-type-row").style.display = "none";
+}
+
+function loadCustomPaymentTypes(){
+  const types = getCustomPaymentTypes();
+  const sel = document.getElementById("pm-type");
+  if(!sel) return;
+  types.forEach(name=>{
+    if(!PAYMENT_TYPES.includes(name)) PAYMENT_TYPES.push(name);
+    if(!PAYMENT_COLORS[name]) PAYMENT_COLORS[name] = "#718096";
+    const exists = [...sel.options].some(o=>o.value===name);
+    if(!exists){
+      const opt = document.createElement("option");
+      opt.value = name; opt.text = name;
+      sel.insertBefore(opt, sel.options[sel.options.length-1]);
+    }
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
   const app = document.getElementById("main-app");
@@ -2049,10 +2121,20 @@ setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fe
       </div>
       <div>
         <label class="login-label">Type</label>
-        <select class="inp" id="pm-type">
-          <option>Vendor Payment</option><option>Payroll</option><option>Invoice</option>
-          <option>Rent/Utilities</option><option>Tax</option><option>Loan</option><option>Other</option>
-        </select>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select class="inp" id="pm-type" onchange="handlePaymentTypeChange(this.value)" style="flex:1;">
+            <option>Vendor Payment</option><option>Payroll</option><option>Invoice</option>
+            <option>Rent/Utilities</option><option>Tax</option><option>Loan</option><option>Other</option>
+            <option id="pm-type-custom-opt" style="display:none;font-style:italic;"></option>
+            <option value="__add_new__">➕ Add new type…</option>
+          </select>
+        </div>
+        <div id="pm-custom-type-row" style="display:none;margin-top:6px;display:none;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input class="inp" id="pm-custom-type-input" placeholder="Enter new type name…" style="flex:1;" />
+            <button onclick="addCustomPaymentType()" style="padding:8px 14px;border-radius:8px;border:none;background:#2b6cb0;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;">Add</button>
+          </div>
+        </div>
       </div>
       <div>
         <label class="login-label">Assigned To</label>
