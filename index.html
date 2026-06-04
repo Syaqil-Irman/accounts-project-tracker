@@ -65,6 +65,13 @@
   .login-err { background:#fff5f5; border:1px solid #fed7d7; color:#c53030; border-radius:8px; padding:9px 14px; font-size:0.82rem; margin-bottom:14px; text-align:center; }
   .logout-btn { background:rgba(255,255,255,0.15); border:none; color:white; border-radius:6px; padding:3px 10px; font-size:0.72rem; cursor:pointer; margin-left:4px; }
   .logout-btn:hover { background:rgba(255,255,255,0.25); }
+  /* Escalation */
+  .esc-badge { display:inline-flex; align-items:center; gap:4px; background:#fff5f5; color:#c53030; border:1px solid #fed7d7; border-radius:8px; padding:2px 7px; font-size:0.68rem; font-weight:700; }
+  .esc-badge.info { background:#ebf8ff; color:#2b6cb0; border-color:#bee3f8; }
+  .esc-row { background:#fffbeb !important; }
+  .esc-row td { border-bottom:1px solid #fef3c7 !important; }
+  @keyframes esc-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(229,62,62,0.3)} 50%{box-shadow:0 0 0 6px rgba(229,62,62,0)} }
+  .esc-pulse { animation: esc-pulse 2s infinite; }
   @media (max-width: 960px) {
     .kpi-grid { grid-template-columns: repeat(2,1fr); }
     .main-grid, .meeting-grid { grid-template-columns: 1fr; }
@@ -79,6 +86,7 @@
   <div id="error-bar"></div>
   <!-- Tab content -->
   <div id="tab-tasks" style="display:none;">
+    <div id="auto-esc-banner"></div>
     <div class="kpi-grid" id="kpi-section"></div>
     <div class="main-grid">
       <div class="card">
@@ -106,7 +114,8 @@
         </div>
       </div>
     </div>
-    <div style="padding:0 28px 32px;" id="delete-log-section"></div>
+    <div style="padding:0 28px 0;" id="delete-log-section"></div>
+  <div style="padding:0 28px 32px;" id="esc-log-section"></div>
   </div>
   <!-- Dashboard tab -->
   <div id="tab-dashboard" style="display:none;">
@@ -280,7 +289,7 @@ function login(){
   const savedTab2=sessionStorage.getItem("activeTab")||"tasks";
   switchTab(savedTab2);
   requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ app.style.opacity="1"; }); });
-  fetchTasks(); fetchDeleteLog(); fetchMeetings(); fetchPayments();
+  fetchTasks(); fetchDeleteLog(); fetchMeetings(); fetchPayments(); fetchEscalations();
 }
 
 function logout(){
@@ -466,6 +475,7 @@ function renderTable(){
   if(tasks.length===0){document.getElementById("task-table-wrap").innerHTML=`<div style="text-align:center;padding:40px 20px;color:#a0aec0;"><div style="font-size:2rem;margin-bottom:8px;">📋</div><div style="font-weight:600;margin-bottom:4px;">No tasks yet</div><div style="font-size:0.82rem;">Add your first task below</div></div>`;return;}
   const rows=filtered.length===0?`<tr><td colspan="8" style="text-align:center;color:#a0aec0;padding:24px;">No tasks match this filter.</td></tr>`:filtered.map(t=>{
     const m=TEAM[t.owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
+    const isEscalated=getTaskEscalation(t.id)!==null;
     const d=daysUntil(t.due);
     const dueColor=t.status!=="Done"&&d<0?"#c53030":t.status!=="Done"&&d<=2?"#744210":"#4a5568";
     const barColor=t.status==="Done"?"#38a169":t.status==="Blocked"?"#e53e3e":"#2b6cb0";
@@ -473,7 +483,10 @@ function renderTable(){
     const priColor={high:"#e53e3e",medium:"#d69e2e",low:"#68d391"}[t.priority]||"#718096";
     return `<tr>
       <td><div style="width:8px;height:8px;border-radius:50%;background:${priColor};display:inline-block;" title="${esc(t.priority)}"></div></td>
-      <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(t.name)}">${esc(t.name)}</td>
+      <td style="max-width:180px;" title="${esc(t.name)}">
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</div>
+        ${(()=>{ const e=getTaskEscalation(t.id); return e?`<div style="font-size:0.67rem;color:#c53030;margin-top:2px;">⚡ Escalated from <strong>${esc(e.from_owner)}</strong> by ${esc(e.escalated_by)}</div>`:""; })()}
+      </td>
       <td><span style="font-size:0.67rem;font-weight:700;color:${cc};background:${cc}22;padding:2px 7px;border-radius:10px;">${esc(t.category)}</span></td>
       <td><div style="display:inline-flex;align-items:center;gap:5px;background:${m.pillBg};border-radius:12px;padding:2px 9px 2px 4px;">
         <div style="width:17px;height:17px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:700;color:white;">${m.initials}</div>
@@ -488,7 +501,13 @@ function renderTable(){
         <input type="number" min="0" max="100" value="${t.progress}" onchange="updateProgress('${t.id}',this.value)"
           style="width:38px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.7rem;padding:1px 4px;color:#718096;text-align:center;" />
       </div></td>
-      <td>${can(currentUser,'tasks','del')?`<button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button>`:`<span style="color:#e2e8f0;font-size:0.8rem;" title="No permission">✕</span>`}</td>
+      <td>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button onclick="openEscModal('${t.id}')" title="Escalate & Reassign"
+            style="padding:3px 7px;border-radius:6px;border:1px solid #fed7d7;background:#fff5f5;color:#c53030;font-size:0.7rem;cursor:pointer;font-weight:700;" class="${getTaskEscalation(t.id)?'esc-pulse':''}">⚡</button>
+          ${can(currentUser,'tasks','del')?`<button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">✕</button>`:`<span style="color:#e2e8f0;font-size:0.8rem;" title="No permission">✕</span>`}
+        </div>
+      </td>
     </tr>`;
   }).join("");
   document.getElementById("task-table-wrap").innerHTML=`<table><thead><tr><th>Pri</th><th>Task</th><th>Cat</th><th>Owner</th><th>Due</th><th>Status</th><th>Progress</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -1414,7 +1433,7 @@ function renderSecurity(){
               ${tabs.map(tab=>{
                 const tabPerms=perms[tab]||{};
                 const allOn=actions.every(a=>tab==="dashboard"?tabPerms["view"]:tabPerms[a]);
-                return `<tr>
+                return `<tr class="${isEscalated?'esc-row':''}">
                   <td style="font-weight:600;color:#2d3748;">${tabLabels[tab]}</td>
                   ${actions.map(a=>{
                     const isDisabled=(tab==="dashboard"&&a!=="view");
@@ -1583,6 +1602,160 @@ function changePassword(username){
   alert(`✅ Password for ${username} updated successfully!`);
 }
 
+
+// ── Escalation ────────────────────────────────────────────────────────────────
+let escalations = [];
+let escalatingTaskId = null;
+
+async function fetchEscalations(){
+  try{
+    const data = await api("/escalations?order=created_at.desc");
+    escalations = data;
+    if(activeTab==="tasks"){ renderTable(); renderEscLog(); }
+    checkAutoEscalations();
+  } catch(e){ console.error("Escalations:",e.message); }
+}
+
+function checkAutoEscalations(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const autoFlag = tasks.filter(t=>{
+    const due = new Date(t.due); due.setHours(0,0,0,0);
+    const isOverdue = due < today && t.status !== "Done";
+    const isBlocked = t.status === "Blocked";
+    const alreadyEsc = escalations.some(e=>e.task_id===t.id&&e.status==="open");
+    return (isOverdue || isBlocked) && !alreadyEsc;
+  });
+  // Show auto-escalation banner if any
+  const banner = document.getElementById("auto-esc-banner");
+  if(!banner) return;
+  if(autoFlag.length === 0){ banner.innerHTML=""; return; }
+  banner.innerHTML=`<div style="background:#fff5f5;border-bottom:2px solid #fed7d7;padding:10px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:1rem;">⚡</span>
+    <div style="flex:1;">
+      <strong style="font-size:0.83rem;color:#c53030;">${autoFlag.length} task${autoFlag.length>1?"s":""} need${autoFlag.length===1?"s":""} attention — consider escalating</strong>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        ${autoFlag.map(t=>`<button onclick="openEscModal('${t.id}',true)"
+          style="font-size:0.75rem;background:#fff5f5;border:1px solid #fed7d7;color:#c53030;border-radius:7px;padding:2px 10px;cursor:pointer;font-weight:600;">
+          ⚡ ${esc(t.name)} <span style="opacity:0.7;">(${t.status==="Blocked"?"Blocked":`${Math.abs(Math.round((new Date(t.due)-new Date())/86400000))}d overdue`})</span>
+        </button>`).join("")}
+      </div>
+    </div>
+    <button onclick="document.getElementById('auto-esc-banner').innerHTML=''" style="background:none;border:none;color:#a0aec0;cursor:pointer;font-size:1rem;">✕</button>
+  </div>`;
+}
+
+function openEscModal(taskId, isAuto=false){
+  const t = tasks.find(x=>x.id===taskId); if(!t) return;
+  escalatingTaskId = taskId;
+  const due = new Date(t.due);
+  const d = Math.round((due - new Date())/86400000);
+  const dueLabel = d<0?`${Math.abs(d)}d overdue`:d===0?"Due today":`Due in ${d}d`;
+  document.getElementById("esc-task-info").innerHTML=`
+    <div style="font-weight:700;color:#2d3748;margin-bottom:4px;">${esc(t.name)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <span class="esc-badge">${esc(t.status)}</span>
+      <span class="esc-badge info">${dueLabel}</span>
+      <span style="font-size:0.78rem;color:#718096;">Current owner: <strong>${esc(t.owner)}</strong></span>
+    </div>
+    ${isAuto?`<div style="margin-top:8px;font-size:0.78rem;color:#c53030;font-weight:600;">⚡ Auto-flagged: ${t.status==="Blocked"?"Task is blocked":"Task is overdue"}</div>`:""}`;
+  // Remove current owner from options
+  document.querySelectorAll("#esc-assignee option").forEach(o=>{
+    o.disabled = o.value === t.owner;
+    o.style.color = o.value === t.owner ? "#a0aec0" : "";
+  });
+  document.getElementById("esc-assignee").value="";
+  document.getElementById("esc-reason").value=isAuto?(t.status==="Blocked"?"Task is blocked and requires escalation.":"Task is overdue and requires urgent attention."):"";
+  document.getElementById("esc-priority").value=t.priority||"high";
+  const modal = document.getElementById("esc-modal");
+  modal.style.display="flex";
+}
+
+function closeEscModal(){
+  document.getElementById("esc-modal").style.display="none";
+  escalatingTaskId=null;
+}
+
+async function confirmEscalation(){
+  const assignee = document.getElementById("esc-assignee").value;
+  const reason = document.getElementById("esc-reason").value.trim();
+  const priority = document.getElementById("esc-priority").value;
+  if(!assignee){ alert("Please select who to reassign to."); return; }
+  if(!reason){ alert("Please provide a reason for escalation."); return; }
+  const t = tasks.find(x=>x.id===escalatingTaskId); if(!t) return;
+  const prevOwner = t.owner;
+  try{
+    // Save escalation record
+    await api("/escalations","POST",{
+      task_id: t.id,
+      task_name: t.name,
+      from_owner: prevOwner,
+      to_owner: assignee,
+      reason,
+      escalated_by: currentUser,
+      status: "open"
+    });
+    // Reassign task + update priority
+    await api(`/tasks?id=eq.${t.id}`,"PATCH",{ owner:assignee, priority, status: t.status==="Blocked"?"In Progress":t.status });
+    tasks = tasks.map(x=>x.id===t.id?{...x,owner:assignee,priority,status:t.status==="Blocked"?"In Progress":t.status}:x);
+    await fetchEscalations();
+    closeEscModal();
+    renderKPIs(); renderTable(); renderSidePanels();
+    showEscSuccessToast(t.name, prevOwner, assignee);
+  } catch(e){ alert("Could not escalate: "+e.message); }
+}
+
+function showEscSuccessToast(taskName, from, to){
+  const toast = document.createElement("div");
+  toast.style.cssText="position:fixed;bottom:24px;right:24px;background:#1a365d;color:white;padding:14px 20px;border-radius:12px;font-size:0.83rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:2000;max-width:320px;";
+  toast.innerHTML=`⚡ <strong>${esc(taskName)}</strong> escalated from ${esc(from)} → ${esc(to)}`;
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(), 3500);
+}
+
+function getTaskEscalation(taskId){
+  return escalations.filter(e=>e.task_id===taskId).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0]||null;
+}
+
+
+function renderEscLog(){
+  const sec=document.getElementById("esc-log-section"); if(!sec) return;
+  const rows=escalations.length===0
+    ?`<p style="color:#a0aec0;font-size:0.83rem;text-align:center;padding:12px 0;">No escalations recorded yet.</p>`
+    :`<table><thead><tr>
+        <th>Task</th><th>From</th><th>To</th><th>Reason</th><th>Escalated By</th><th>Date</th><th>Status</th>
+      </tr></thead><tbody>
+      ${escalations.map(e=>{
+        const mFrom=TEAM[e.from_owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
+        const mTo=TEAM[e.to_owner]||{initials:"??",color:"#718096",pillBg:"#f7fafc",pillText:"#4a5568"};
+        const mBy=TEAM[e.escalated_by]||{initials:"??",color:"#718096"};
+        const dt=new Date(e.created_at).toLocaleString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+        return `<tr>
+          <td style="font-weight:600;color:#2d3748;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(e.task_name)}">${esc(e.task_name)}</td>
+          <td><div style="display:inline-flex;align-items:center;gap:4px;background:${mFrom.pillBg};border-radius:10px;padding:2px 8px 2px 4px;">
+            <div style="width:16px;height:16px;border-radius:50%;background:${mFrom.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${mFrom.initials}</div>
+            <span style="font-size:0.72rem;font-weight:600;color:${mFrom.pillText};">${esc(e.from_owner)}</span>
+          </div></td>
+          <td><div style="display:inline-flex;align-items:center;gap:4px;background:${mTo.pillBg};border-radius:10px;padding:2px 8px 2px 4px;">
+            <div style="width:16px;height:16px;border-radius:50%;background:${mTo.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${mTo.initials}</div>
+            <span style="font-size:0.72rem;font-weight:600;color:${mTo.pillText};">${esc(e.to_owner)}</span>
+          </div></td>
+          <td style="font-size:0.78rem;color:#4a5568;max-width:180px;" title="${esc(e.reason)}">${esc(e.reason)}</td>
+          <td><div style="display:inline-flex;align-items:center;gap:4px;">
+            <div style="width:16px;height:16px;border-radius:50%;background:${mBy.color};display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;color:white;">${mBy.initials}</div>
+            <span style="font-size:0.72rem;color:#718096;">${esc(e.escalated_by)}</span>
+          </div></td>
+          <td style="font-size:0.75rem;color:#a0aec0;white-space:nowrap;">${dt}</td>
+          <td><span style="font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px;background:${e.status==="resolved"?"#f0fff4":"#fff5f5"};color:${e.status==="resolved"?"#276749":"#c53030"};">${e.status==="resolved"?"✓ Resolved":"⚡ Open"}</span></td>
+        </tr>`;
+      }).join("")}
+      </tbody></table>`;
+
+  sec.innerHTML=`<div class="card"><div class="card-header" style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';">
+    <h2>⚡ Escalation Log <span style="font-size:0.75rem;font-weight:400;color:#a0aec0;margin-left:6px;">${escalations.length} record${escalations.length!==1?"s":""}</span></h2>
+    <span style="color:#718096;font-size:0.8rem;">▼ Show</span>
+  </div>
+  <div style="display:none;" class="card-body">${rows}</div></div>`;
+}
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if(currentUser){
   const app = document.getElementById("main-app");
@@ -1595,10 +1768,10 @@ if(currentUser){
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{ app.style.opacity="1"; });
     });
-    fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();
+    fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();fetchEscalations();
   });
 }else{showLogin();}
-setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}},30000);
+setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fetchEscalations();}},30000);
 </script>
 
 <!-- Payment Modal -->
@@ -1672,6 +1845,34 @@ setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();}}
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
       <button class="btn btn-danger" onclick="closePaymentModal()">Cancel</button>
       <button class="btn btn-primary" onclick="savePayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Escalation Modal -->
+<div id="esc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h2 style="font-size:1rem;font-weight:700;color:#c53030;">⚡ Escalate Task</h2>
+      <button onclick="closeEscModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <div id="esc-task-info" style="background:#f7fafc;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#4a5568;"></div>
+    <label class="login-label">Reassign to</label>
+    <select class="inp" id="esc-assignee" style="margin-bottom:12px;">
+      <option value="">Select team member…</option>
+      <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
+    </select>
+    <label class="login-label">Reason for escalation</label>
+    <textarea class="inp" id="esc-reason" placeholder="e.g. Blocked waiting for vendor response, reassigning to follow up…" style="min-height:80px;resize:vertical;margin-bottom:12px;"></textarea>
+    <label class="login-label">Priority after escalation</label>
+    <select class="inp" id="esc-priority" style="margin-bottom:20px;">
+      <option value="high">🔴 High</option>
+      <option value="medium">🟡 Medium</option>
+      <option value="low">🟢 Low</option>
+    </select>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-danger" onclick="closeEscModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmEscalation()" style="background:#c53030;">⚡ Escalate & Reassign</button>
     </div>
   </div>
 </div>
