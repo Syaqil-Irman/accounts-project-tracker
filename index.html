@@ -431,7 +431,7 @@ function buildStaticShell(){
       <option value="by_date">📅 Monthly by date</option>
       <option value="by_day">📆 Weekly by day</option>
     </select>
-    ${can(currentUser,\'tasks\',\'add\')?`<button class="btn btn-primary" id="add-btn" onclick="addTask()">+ Add</button>`:`<button class="btn" disabled style="background:#e2e8f0;color:#a0aec0;cursor:not-allowed;" title="No permission">+ Add</button>`}`;
+    ${can(currentUser,'tasks','add')?`<button class='btn btn-primary' id='add-btn' onclick='addTask()'>+ Add</button>`:`<button class='btn' disabled style='background:#e2e8f0;color:#a0aec0;cursor:not-allowed;' title='No permission'>+ Add</button>`}`;
 }
 
 // ── Filter bar ────────────────────────────────────────────────────────────────
@@ -2216,3 +2216,123 @@ if(currentUser){
   const savedTab = (_savedTab==="security" && !USERS[currentUser]?.superAdmin) ? "tasks" : _savedTab;
   // Load permissions from DB first so access control is correct before rendering
   loadPermissionsFromDB().finally(()=>{
+    buildStaticShell();
+    switchTab(savedTab);
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{ app.style.opacity="1"; });
+    });
+    fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();fetchEscalations();
+  });
+}else{showLogin();}
+setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fetchEscalations();}},30000);
+</script>
+
+<!-- Payment Modal -->
+<div id="payment-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1rem;font-weight:700;color:#1a365d;">Schedule Payment</h2>
+      <button onclick="closePaymentModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="grid-column:1/-1;">
+        <label class="login-label">Payment Name</label>
+        <input class="inp" id="pm-name" placeholder="e.g. Office Rent" />
+      </div>
+      <div>
+        <label class="login-label">Type</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select class="inp" id="pm-type" onchange="handlePaymentTypeChange(this.value)" style="flex:1;">
+            <option>Vendor Payment</option><option>Payroll</option><option>Invoice</option>
+            <option>Rent/Utilities</option><option>Tax</option><option>Loan</option><option>Other</option>
+            <option id="pm-type-custom-opt" style="display:none;font-style:italic;"></option>
+            <option value="__add_new__">➕ Add new type…</option>
+          </select>
+        </div>
+        <div id="pm-custom-type-row" style="display:none;margin-top:6px;display:none;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input class="inp" id="pm-custom-type-input" placeholder="Enter new type name…" style="flex:1;" />
+            <button onclick="addCustomPaymentType()" style="padding:8px 14px;border-radius:8px;border:none;background:#2b6cb0;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;">Add</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="login-label">Assigned To</label>
+        <select class="inp" id="pm-assigned">
+          <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
+        </select>
+      </div>
+      <div>
+        <label class="login-label">Amount</label>
+        <input class="inp" id="pm-amount" type="number" placeholder="0.00" />
+      </div>
+      <div>
+        <label class="login-label">Currency</label>
+        <select class="inp" id="pm-currency">
+          <option value="SGD">SGD</option><option value="MYR">MYR</option>
+          <option value="USD">USD</option><option value="EUR">EUR</option>
+        </select>
+      </div>
+      <div>
+        <label class="login-label">Next Due Date</label>
+        <input class="inp" id="pm-due" type="date" />
+      </div>
+      <div>
+        <label class="login-label">Recurrence</label>
+        <select class="inp" id="pm-recurrence" onchange="document.getElementById('pm-custom-row').style.display=this.value==='Custom'?'flex':'none';">
+          <option>One-time</option><option>Daily</option><option>Weekly</option>
+          <option>Fortnightly</option><option>Monthly</option><option>Quarterly</option>
+          <option>Yearly</option><option>Custom</option>
+        </select>
+      </div>
+      <div id="pm-custom-row" style="display:none;grid-column:1/-1;align-items:center;gap:8px;">
+        <label class="login-label" style="margin:0;white-space:nowrap;">Every</label>
+        <input class="inp" id="pm-custom-interval" type="number" placeholder="e.g. 10" style="width:80px;" />
+        <span style="font-size:0.82rem;color:#718096;">days</span>
+      </div>
+      <div>
+        <label class="login-label">Remind me</label>
+        <select class="inp" id="pm-reminder">
+          <option value="1">1 day before</option>
+          <option value="3" selected>3 days before</option>
+          <option value="5">5 days before</option>
+          <option value="7">7 days before</option>
+          <option value="14">14 days before</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label class="login-label">Notes (optional)</label>
+        <textarea class="inp" id="pm-notes" placeholder="Vendor details, reference number…" style="min-height:60px;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-danger" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Escalation Modal -->
+<div id="esc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h2 style="font-size:1rem;font-weight:700;color:#c53030;">⚡ Escalate Task</h2>
+      <button onclick="closeEscModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <div id="esc-task-info" style="background:#f7fafc;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#4a5568;"></div>
+    <label class="login-label">Reassign to</label>
+    <select class="inp" id="esc-assignee" style="margin-bottom:12px;">
+      <option value="">Select team member…</option>
+      <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
+    </select>
+    <label class="login-label">Reason for escalation</label>
+    <textarea class="inp" id="esc-reason" placeholder="e.g. Blocked waiting for vendor response, reassigning to follow up…" style="min-height:80px;resize:vertical;margin-bottom:12px;"></textarea>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-danger" onclick="closeEscModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmEscalation()" style="background:#c53030;">⚡ Escalate & Reassign</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
