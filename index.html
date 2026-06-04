@@ -1615,7 +1615,7 @@ function renderSecurity(){
               ${tabs.map(tab=>{
                 const tabPerms=perms[tab]||{};
                 const allOn=actions.every(a=>tab==="dashboard"?tabPerms["view"]:tabPerms[a]);
-                return `<tr class="${isEscalated?'esc-row':''}">
+                return `<tr>
                   <td style="font-weight:600;color:#2d3748;">${tabLabels[tab]}</td>
                   ${actions.map(a=>{
                     const isDisabled=(tab==="dashboard"&&a!=="view");
