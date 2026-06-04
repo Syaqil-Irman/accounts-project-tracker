@@ -531,11 +531,10 @@ function renderTable(){
       <td style="font-size:0.76rem;color:${dueColor};white-space:nowrap;">${fmtDate(t.due)}</td>
       <td>${can(currentUser,'tasks','edit')?`<select class="status-sel" onchange="updateStatus('${t.id}',this.value)">${STATUSES.map(s=>`<option ${t.status===s?"selected":""}>${esc(s)}</option>`).join("")}</select>`:`<span style="font-size:0.72rem;font-weight:600;color:${STATUS_COLORS[t.status]||'#718096'};background:${(STATUS_COLORS[t.status]||'#718096')+'18'};padding:2px 8px;border-radius:8px;">${esc(t.status)}</span>`}</td>
       <td><div style="display:flex;align-items:center;gap:6px;">
-        <div style="background:#e2e8f0;border-radius:4px;height:6px;width:60px;flex-shrink:0;">
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;width:80px;flex-shrink:0;">
           <div style="width:${t.progress}%;height:100%;border-radius:4px;background:${barColor};transition:width .3s;"></div>
         </div>
-        <input type="number" min="0" max="100" value="${t.progress}" onchange="updateProgress('${t.id}',this.value)"
-          style="width:38px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.7rem;padding:1px 4px;color:#718096;text-align:center;" />
+        <span style="font-size:0.7rem;color:#718096;min-width:28px;">${t.progress}%</span>
       </div></td>
       <td>
         <div style="display:flex;gap:4px;align-items:center;">
