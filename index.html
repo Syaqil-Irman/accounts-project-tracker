@@ -125,9 +125,8 @@
     <div class="meeting-grid">
       <!-- Upcoming meetings -->
       <div class="card">
-        <div class="card-header">
+        <div class="card-header" id="meetings-card-header">
           <h2>📅 Upcoming Meetings</h2>
-          ${can(currentUser,'meetings','add')?`<button class="btn btn-primary btn-sm" onclick="openMeetingModal()">+ New Meeting</button>`:""}
         </div>
         <div class="card-body" id="meetings-list"></div>
       </div>
@@ -649,6 +648,20 @@ async function saveMeeting(){
 }
 
 function renderMeetings(){
+  // Inject add button based on permission
+  const hdr=document.getElementById("meetings-card-header");
+  if(hdr){
+    const existing=document.getElementById("new-meeting-btn");
+    if(existing) existing.remove();
+    if(can(currentUser,'meetings','add')){
+      const btn=document.createElement("button");
+      btn.id="new-meeting-btn";
+      btn.className="btn btn-primary btn-sm";
+      btn.textContent="+ New Meeting";
+      btn.onclick=openMeetingModal;
+      hdr.appendChild(btn);
+    }
+  }
   const now=new Date();
   const upcoming=meetings.filter(m=>new Date(m.meeting_date)>=now).slice(0,8);
   const past=meetings.filter(m=>new Date(m.meeting_date)<now).slice(-3).reverse();
