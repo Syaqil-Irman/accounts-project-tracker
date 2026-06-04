@@ -67,11 +67,9 @@
   .logout-btn:hover { background:rgba(255,255,255,0.25); }
   /* Dashboard drag & drop */
   .dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; position:relative; will-change:transform; }
-  /* Edit mode wobble */
-  @keyframes editWobble { 0%,100%{transform:rotate(-0.5deg)} 50%{transform:rotate(0.5deg)} }
-  .dash-module.edit-mode { animation: editWobble 0.5s ease-in-out infinite; }
-  .dash-module.edit-mode:hover { animation: none; transform:scale(1.02); box-shadow:0 4px 16px rgba(0,0,0,0.12); }
+  .dash-grid .dash-module { transition:transform 0.2s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.15s, opacity 0.15s; }
+  .dash-module { border-radius:12px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.08); overflow:hidden; position:relative; transition:box-shadow 0.15s, opacity 0.15s; }
+  .dash-module.in-edit:hover { box-shadow:0 4px 14px rgba(0,0,0,0.13); }
   .dash-module.hidden-module { display:none; }
   .drag-handle { display:flex; align-items:center; gap:6px; padding:13px 18px; border-bottom:1px solid #e2e8f0; justify-content:space-between; }
   .drag-handle h3 { font-size:0.88rem; font-weight:700; color:#2d3748; }
@@ -888,9 +886,8 @@ function renderDashboard(){
       style="${m.size==="full"?"grid-column:1/-1":""}">
       <div class="drag-handle">
         <div style="display:flex;align-items:center;gap:8px;">
-          ${isEditMode?`<span class="drag-handle-icon" title="Drag to reorder" style="font-size:1.2rem;cursor:grab;color:#2b6cb0;background:#ebf8ff;border-radius:5px;padding:2px 6px;user-select:none;">⠿</span>`:""}
+          ${isEditMode?`<span class="drag-handle-icon" title="Drag to reorder" style="font-size:1.1rem;cursor:grab;color:#2b6cb0;background:#ebf8ff;border-radius:6px;padding:3px 7px;user-select:none;font-weight:700;">⠿</span>`:""}
           <h3>${m.title}</h3>
-          ${isEditMode?`<span style="font-size:0.68rem;color:#a0aec0;font-weight:400;">drag to move</span>`:""}
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           ${key==="welcome"?"":buildViewAllBtn(key)}
@@ -1113,99 +1110,91 @@ function renderDashboard(){
   if(isEditMode) requestAnimationFrame(()=>requestAnimationFrame(()=>initDashDrag()));
 }
 
-// ── Drag & Drop — iOS-style smooth rearrange ─────────────────────────────────
-let _drag = null; // active drag state
+// ── Drag & Drop — smooth, no wobble ──────────────────────────────────────────
+let _drag = null;
 
 function initDashDrag(){
   const grid = document.getElementById("dash-grid");
   if(!grid) return;
 
-  // Add transition to all modules for smooth reorder animation
-  grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach((el, i)=>{
-    el.style.transition = "transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease";
-    el.classList.add("edit-mode");
-    // Stagger wobble so cards don't all move in sync (iOS style)
-    el.style.animationDelay = (i * 0.07) + "s";
+  // Remove any leftover wobble classes
+  grid.querySelectorAll(".dash-module").forEach(m=>{
+    m.classList.remove("edit-mode");
+    m.style.animation = "none";
+    m.style.animationDelay = "";
+  });
+
+  grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach(el=>{
     const handle = el.querySelector(".drag-handle-icon");
-    if(handle){
-      handle.style.cursor = "grab";
-      handle.onmousedown = e => _initDrag(e, el, grid);
-    }
+    if(!handle) return;
+    handle.style.cursor = "grab";
+    handle.onmousedown = e => startDrag(e, el, grid);
   });
 }
 
-function _initDrag(e, el, grid){
+function startDrag(e, dragEl, grid){
   e.preventDefault();
   e.stopPropagation();
 
-  const allModules = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")];
-  const rect = el.getBoundingClientRect();
+  const rect = dragEl.getBoundingClientRect();
   const offX = e.clientX - rect.left;
   const offY = e.clientY - rect.top;
-  const scrollY = window.scrollY;
 
-  // Create ghost — a visual clone that floats
-  const ghost = el.cloneNode(true);
+  // -- Ghost: floating copy that follows cursor --
+  const ghost = document.createElement("div");
+  ghost.innerHTML = dragEl.innerHTML;
   ghost.style.cssText = `
-    position:fixed; z-index:9999; width:${rect.width}px; height:${rect.height}px;
+    position:fixed; z-index:9999; pointer-events:none;
+    width:${rect.width}px; height:${rect.height}px;
     left:${rect.left}px; top:${rect.top}px;
-    pointer-events:none; border-radius:14px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15);
-    transform:scale(1.04) rotate(1deg); opacity:0.92;
-    transition:box-shadow 0.15s, transform 0.15s;
-    background:white;
+    background:white; border-radius:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.22);
+    opacity:0.96; transition:none;
   `;
   document.body.appendChild(ghost);
 
-  // Pause wobble while dragging
-  grid.querySelectorAll(".dash-module").forEach(m=>{ m.classList.remove("edit-mode"); m.style.animationDelay=""; });
-  // Dim the original
-  el.style.opacity = "0.25";
-  el.style.transform = "scale(0.97)";
-  el.style.transition = "opacity 0.15s, transform 0.15s";
+  // Dim the source
+  dragEl.style.opacity = "0.3";
+  dragEl.style.transition = "none";
 
-  let currentOrder = allModules.map(m => m.dataset.key);
-  let lastSwapIdx = allModules.indexOf(el);
+  // Track which slot we're in
+  const modules = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")];
+  let lastTarget = null;
+
+  function getOrder(){
+    return [...grid.querySelectorAll(".dash-module:not(.hidden-module)")].map(m=>m.dataset.key);
+  }
 
   function onMove(ev){
     // Move ghost
     ghost.style.left = (ev.clientX - offX) + "px";
     ghost.style.top  = (ev.clientY - offY) + "px";
 
-    // Find which module the ghost centre is over
-    const ghostCX = ev.clientX - offX + rect.width/2;
-    const ghostCY = ev.clientY - offY + rect.height/2;
+    // Find closest module (by centre distance)
+    const gCX = ev.clientX - offX + rect.width  / 2;
+    const gCY = ev.clientY - offY + rect.height / 2;
 
-    let closestIdx = -1, closestDist = Infinity;
-    allModules.forEach((m, i) => {
-      if(m === el) return;
+    let closest = null, closestDist = Infinity;
+    grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach(m=>{
+      if(m === dragEl) return;
       const r = m.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top  + r.height/2;
-      const dist = Math.hypot(ghostCX - cx, ghostCY - cy);
-      if(dist < closestDist){ closestDist = dist; closestIdx = i; }
+      const dist = Math.hypot(gCX - (r.left + r.width/2), gCY - (r.top + r.height/2));
+      if(dist < closestDist){ closestDist = dist; closest = m; }
     });
 
-    if(closestIdx === -1) return;
-    const targetEl = allModules[closestIdx];
-    const currentIdx = allModules.indexOf(el);
+    if(!closest || closest === lastTarget) return;
+    lastTarget = closest;
 
-    if(closestIdx !== lastSwapIdx){
-      lastSwapIdx = closestIdx;
-      // Swap in DOM with animation
-      if(closestIdx < currentIdx){
-        grid.insertBefore(el, targetEl);
-      } else {
-        grid.insertBefore(el, targetEl.nextSibling);
-      }
-      // Wobble neighbours
-      allModules.forEach((m,i) => {
-        if(m===el) return;
-        const newR = m.getBoundingClientRect();
-        m.style.transition = "transform 0.18s cubic-bezier(0.34,1.56,0.64,1)";
-        m.style.transform = "scale(0.97)";
-        setTimeout(()=>{ m.style.transform = ""; }, 180);
-      });
+    // Smoothly shift other cards by swapping in DOM
+    // Animate the displaced card
+    const closestRect = closest.getBoundingClientRect();
+    const dragIdx = [...grid.children].indexOf(dragEl);
+    const closestIdx = [...grid.children].indexOf(closest);
+
+    if(dragIdx < closestIdx){
+      grid.insertBefore(dragEl, closest.nextSibling);
+    } else {
+      grid.insertBefore(dragEl, closest);
     }
   }
 
@@ -1213,36 +1202,28 @@ function _initDrag(e, el, grid){
     document.removeEventListener("mousemove", onMove);
     document.removeEventListener("mouseup", onUp);
 
-    // Snap ghost back to el position with animation
-    const finalRect = el.getBoundingClientRect();
-    ghost.style.transition = "left 0.2s cubic-bezier(0.34,1.56,0.64,1), top 0.2s cubic-bezier(0.34,1.56,0.64,1), transform 0.2s, opacity 0.2s";
-    ghost.style.left = finalRect.left + "px";
-    ghost.style.top  = finalRect.top  + "px";
-    ghost.style.transform = "scale(1) rotate(0deg)";
+    // Animate ghost snapping to final position
+    const finalRect = dragEl.getBoundingClientRect();
+    ghost.style.transition = "left 0.18s ease, top 0.18s ease, opacity 0.18s ease, transform 0.18s ease";
+    ghost.style.left    = finalRect.left + "px";
+    ghost.style.top     = finalRect.top  + "px";
     ghost.style.opacity = "0";
+    ghost.style.transform = "scale(0.97)";
 
-    // Restore original
-    el.style.opacity = "1";
-    el.style.transform = "";
-    el.style.transition = "opacity 0.2s, transform 0.2s";
+    dragEl.style.opacity   = "1";
+    dragEl.style.transition = "";
 
-    setTimeout(()=>{
-      ghost.remove();
-      // Restore wobble animation
-      grid.querySelectorAll(".dash-module:not(.hidden-module)").forEach((m,i)=>{
-        m.style.transform = "";
-        m.style.transition = "transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease";
-        m.classList.add("edit-mode");
-        m.style.animationDelay = (i * 0.07) + "s";
-      });
-    }, 220);
+    setTimeout(()=>{ ghost.remove(); }, 200);
 
-    // Save new order
+    // Save order
     const newOrder = [...grid.querySelectorAll(".dash-module:not(.hidden-module)")].map(m=>m.dataset.key).filter(Boolean);
-    const def = {order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"],hidden:[]};
-    const layout = JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser)||JSON.stringify(def));
+    const def = { order:["welcome","kpis","overdue","dueweek","team","actions","meetings","payments"], hidden:[] };
+    const layout = JSON.parse(sessionStorage.getItem("dash_layout_"+currentUser) || JSON.stringify(def));
     layout.order = [...new Set([...newOrder, ...layout.order])];
     sessionStorage.setItem("dash_layout_"+currentUser, JSON.stringify(layout));
+
+    // Re-init drag handles without re-rendering
+    setTimeout(()=>initDashDrag(), 250);
   }
 
   document.addEventListener("mousemove", onMove);
