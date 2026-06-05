@@ -35,7 +35,7 @@
   .kpi .value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
   .kpi .sub { font-size: 0.72rem; color: #a0aec0; margin-top: 4px; }
   .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; padding: 18px 28px 32px; }
-  .add-row { display: grid; grid-template-columns: 1.8fr 1fr 1fr auto; gap: 8px; margin-top: 14px; align-items: center; }
+  .add-row { display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.9fr auto; gap: 8px; margin-top: 14px; align-items: center; }
   .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   /* Tabs */
   .tab-bar { background: #1a365d; padding: 0 28px; display: flex; gap: 2px; align-items: flex-end; }
@@ -223,8 +223,26 @@
     <label class="login-label">Agenda / Notes</label>
     <textarea class="inp" id="m-notes" placeholder="Meeting agenda, discussion points, decisions…" style="margin-bottom:12px;min-height:100px;resize:vertical;"></textarea>
     <label class="login-label">Action Items (one per line, format: Task — Assignee)</label>
-    <textarea class="inp" id="m-actions" placeholder="e.g. Send AR report — Batrisyia&#10;Review payroll — Syaqil" style="margin-bottom:20px;min-height:80px;resize:vertical;"></textarea>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+    <textarea class="inp" id="m-actions" placeholder="e.g. Send AR report — Batrisyia&#10;Review payroll — Syaqil" style="margin-bottom:12px;min-height:80px;resize:vertical;"></textarea>
+    <label class="login-label">Recurrence</label>
+    <select class="inp" id="m-recurrence" onchange="toggleMeetingRecurFields()" style="margin-bottom:8px;">
+      <option value="">No recurrence</option>
+      <option value="by_date">📅 Monthly by date</option>
+      <option value="by_day">📆 Weekly by day</option>
+    </select>
+    <div id="m-recur-detail" style="display:none;background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px;padding:10px 14px;margin-bottom:12px;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div id="m-recur-by-date" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:0.82rem;color:#276749;">Every month on the</span>
+        <select class="inp" id="m-recur-day-of-month" style="width:80px;font-size:0.8rem;padding:4px 8px;"></select>
+        <span style="font-size:0.82rem;color:#276749;">day</span>
+      </div>
+      <div id="m-recur-by-day" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:0.82rem;color:#276749;">Every</span>
+        <select class="inp" id="m-recur-day-of-week" style="width:120px;font-size:0.8rem;padding:4px 8px;"></select>
+      </div>
+      <span style="font-size:0.73rem;color:#38a169;font-style:italic;">· Next meeting auto-created when this one passes</span>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
       <button class="btn btn-danger" onclick="closeMeetingModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMeeting()">Save Meeting</button>
     </div>
@@ -726,7 +744,11 @@ function openMeetingModal(){
   document.getElementById("m-actions").value="";
   document.querySelectorAll(".m-attendee").forEach(c=>c.checked=false);
 }
-function closeMeetingModal(){document.getElementById("meeting-modal").style.display="none";}
+function closeMeetingModal(){
+  document.getElementById("meeting-modal").style.display="none";
+  const rec=document.getElementById("m-recurrence"); if(rec) rec.value="";
+  const det=document.getElementById("m-recur-detail"); if(det) det.style.display="none";
+}
 
 async function saveMeeting(){
   const title=document.getElementById("m-title").value.trim();
@@ -734,9 +756,13 @@ async function saveMeeting(){
   const notes=document.getElementById("m-notes").value.trim();
   const actionsRaw=document.getElementById("m-actions").value.trim();
   const attendees=[...document.querySelectorAll(".m-attendee:checked")].map(c=>c.value);
+  const recurType=document.getElementById("m-recurrence")?.value||"";
+  const recurDayOfMonth=recurType==="by_date"?(parseInt(document.getElementById("m-recur-day-of-month")?.value)||1):null;
+  const recurDayOfWeek=recurType==="by_day"?(parseInt(document.getElementById("m-recur-day-of-week")?.value)||0):null;
   if(!title||!dt){alert("Please fill in meeting title and date.");return;}
   try{
-    const created=await api("/meetings","POST",{title,meeting_date:dt,attendees:attendees.join(","),notes,created_by:currentUser});
+    const created=await api("/meetings","POST",{title,meeting_date:dt,attendees:attendees.join(","),notes,created_by:currentUser,
+      recur_type:recurType||null,recur_day_of_month:recurDayOfMonth,recur_day_of_week:recurDayOfWeek});
     const mtg=Array.isArray(created)?created[0]:created;
     meetings=[...meetings,mtg].sort((a,b)=>new Date(a.meeting_date)-new Date(b.meeting_date));
     // Save action items
@@ -788,7 +814,9 @@ function renderMeetings(){
         <div style="font-weight:700;font-size:0.87rem;color:#2d3748;flex:1;">${esc(m.title)}</div>
         <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;background:${labelBg};color:${labelColor};white-space:nowrap;">${label}</span>
       </div>
-      <div style="font-size:0.77rem;color:#718096;margin-bottom:6px;">📅 ${fmtDT(m.meeting_date)}</div>
+      <div style="font-size:0.77rem;color:#718096;margin-bottom:6px;">📅 ${fmtDT(m.meeting_date)}
+        ${m.recur_type?`<span style="font-size:0.68rem;font-weight:700;background:#f0fff4;color:#276749;border-radius:6px;padding:1px 6px;margin-left:4px;">🔁 ${m.recur_type==="by_date"?`Monthly (${m.recur_day_of_month}${m.recur_day_of_month===1?"st":m.recur_day_of_month===2?"nd":m.recur_day_of_month===3?"rd":"th"})`:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][m.recur_day_of_week]||"Weekly"}</span>`:""}
+      </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">
         ${attendeeList.map(a=>{const tm=TEAM[a];return tm?`<div style="width:20px;height:20px;border-radius:50%;background:${tm.color};display:flex;align-items:center;justify-content:center;font-size:0.58rem;font-weight:700;color:white;" title="${esc(a)}">${tm.initials}</div>`:`<span class="tag-chip">${esc(a)}</span>`;}).join("")}
       </div>
@@ -2217,6 +2245,66 @@ function showRecurToast(name, date){
   toast.innerHTML=`🔁 Next recurring task created for <strong>${esc(name)}</strong> on ${fmtDate(date)}`;
   document.body.appendChild(toast);
   setTimeout(()=>toast.remove(), 4000);
+}
+
+
+// ── Meeting Recurrence ────────────────────────────────────────────────────────
+function toggleMeetingRecurFields(){
+  const val = document.getElementById("m-recurrence")?.value||"";
+  const detail = document.getElementById("m-recur-detail");
+  const byDate = document.getElementById("m-recur-by-date");
+  const byDay  = document.getElementById("m-recur-by-day");
+  if(!detail) return;
+  if(!val){ detail.style.display="none"; return; }
+  detail.style.display="flex";
+
+  // Populate day-of-month
+  const domSel = document.getElementById("m-recur-day-of-month");
+  if(domSel && !domSel.options.length){
+    for(let i=1;i<=31;i++){
+      const o=document.createElement("option");
+      o.value=i; o.text=i+(i===1?"st":i===2?"nd":i===3?"rd":"th");
+      domSel.appendChild(o);
+    }
+  }
+  // Populate day-of-week
+  const dowSel = document.getElementById("m-recur-day-of-week");
+  if(dowSel && !dowSel.options.length){
+    ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].forEach((d,i)=>{
+      const o=document.createElement("option"); o.value=i; o.text=d; dowSel.appendChild(o);
+    });
+  }
+  if(byDate) byDate.style.display = val==="by_date"?"flex":"none";
+  if(byDay)  byDay.style.display  = val==="by_day" ?"flex":"none";
+}
+
+async function createNextRecurringMeeting(mtg){
+  if(!mtg.recur_type) return;
+  const nextDate = getNextRecurDate(mtg.recur_type, mtg.recur_day_of_month, mtg.recur_day_of_week);
+  if(!nextDate) return;
+  // Keep same time from original
+  const origDate = new Date(mtg.meeting_date);
+  const timeStr = `${String(origDate.getHours()).padStart(2,'0')}:${String(origDate.getMinutes()).padStart(2,'0')}`;
+  const nextDateTime = `${nextDate}T${timeStr}`;
+  try{
+    const created = await api("/meetings","POST",{
+      title: mtg.title,
+      meeting_date: nextDateTime,
+      attendees: mtg.attendees,
+      notes: "",
+      created_by: currentUser,
+      recur_type: mtg.recur_type,
+      recur_day_of_month: mtg.recur_day_of_month||null,
+      recur_day_of_week: mtg.recur_day_of_week!==null&&mtg.recur_day_of_week!==undefined?mtg.recur_day_of_week:null,
+    });
+    const newMtg = Array.isArray(created)?created[0]:created;
+    meetings = [...meetings, newMtg].sort((a,b)=>new Date(a.meeting_date)-new Date(b.meeting_date));
+    const toast=document.createElement("div");
+    toast.style.cssText="position:fixed;bottom:24px;right:24px;background:#276749;color:white;padding:12px 18px;border-radius:10px;font-size:0.82rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:2000;max-width:320px;";
+    toast.innerHTML=`🔁 Next recurring meeting created: <strong>${esc(mtg.title)}</strong> on ${fmtDate(nextDate)}`;
+    document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(), 4000);
+  }catch(e){ console.error("Could not create next recurring meeting:",e.message); }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
