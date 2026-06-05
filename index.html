@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+]<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>M2 Accounts Team App</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
@@ -235,6 +236,9 @@
 const SUPABASE_URL = "https://skiovsgqmwlcpyroltlm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNraW92c2dxbXdsY3B5cm9sdGxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTQzMjIsImV4cCI6MjA5NDA3MDMyMn0.85rqMwSyXtvCKVThU4ed1WxG6QkCpeEtQX0Fd632WHg";
 
+// ── Supabase Auth client (initialised after lib loads) ────────────────────────
+let supabase = null;
+
 // ── Permissions ───────────────────────────────────────────────────────────────
 // Loaded from sessionStorage so super admin changes persist per session
 const DEFAULT_PERMISSIONS = {
@@ -255,10 +259,17 @@ function can(user, tab, action){
   return PERMISSIONS[user]?.[tab]?.[action]||false;
 }
 
+// Email → username mapping (add Ulfah and Batrisyia here when their accounts are created)
+const EMAIL_TO_USER = {
+  "mastermaths.syaqil@gmail.com": "Syaqil",
+  // "ulfah@m2accounts.com": "Ulfah",       // uncomment when account created
+  // "batrisyia@m2accounts.com": "Batrisyia", // uncomment when account created
+};
+
 const USERS = {
-  Syaqil:    { password:"Syaqil@2026",    role:"Accounts Executive", admin:true,  superAdmin:true  },
-  Ulfah:     { password:"Ulfah@2026",     role:"Accounts Assistant", admin:true,  superAdmin:false },
-  Batrisyia: { password:"Batrisyia@2026", role:"Accounts Assistant", admin:false, superAdmin:false },
+  Syaqil:    { role:"Accounts Executive", admin:true,  superAdmin:true  },
+  Ulfah:     { role:"Accounts Assistant", admin:true,  superAdmin:false },
+  Batrisyia: { role:"Accounts Assistant", admin:false, superAdmin:false },
 };
 const TEAM = {
   Syaqil:    { initials:"SQ", color:"#2b6cb0", pillBg:"#ebf8ff", pillText:"#2b6cb0" },
@@ -320,32 +331,54 @@ function showLogin(errMsg){
       <div class="login-title">M2 Accounts Team App</div>
       <div class="login-sub">Please sign in to continue</div>
       ${errMsg?`<div class="login-err">${esc(errMsg)}</div>`:""}
-      <label class="login-label">Username</label>
-      <input class="login-inp" id="login-user" type="text" placeholder="" onkeydown="if(event.key==='Enter')login();" autofocus />
+      <label class="login-label">Email</label>
+      <input class="login-inp" id="login-email" type="email" placeholder="" onkeydown="if(event.key===\'Enter\')login();" autofocus />
       <label class="login-label">Password</label>
-      <input class="login-inp" id="login-pass" type="password" placeholder="" onkeydown="if(event.key==='Enter')login();" />
-      <button class="login-btn" onclick="login()">Sign In →</button>
+      <input class="login-inp" id="login-pass" type="password" placeholder="" onkeydown="if(event.key===\'Enter\')login();" />
+      <button class="login-btn" id="login-btn" onclick="login()">Sign In →</button>
     </div></div>`;
 }
 
-function login(){
-  const u=(document.getElementById("login-user")?.value||"").trim();
-  const p=document.getElementById("login-pass")?.value||"";
-  if(!USERS[u]||USERS[u].password!==p){showLogin("Incorrect username or password.");return;}
-  currentUser=u; sessionStorage.setItem("currentUser",u);
-  document.getElementById("login-screen").innerHTML="";
-  const app=document.getElementById("main-app");
-  app.style.display="block";
-  app.style.opacity="0";
-  buildStaticShell();
-  const savedTab2=localStorage.getItem("m2_activeTab_"+(sessionStorage.getItem("currentUser")||""))||"tasks";
-  switchTab(savedTab2);
-  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ app.style.opacity="1"; }); });
-  fetchTasks(); fetchDeleteLog(); fetchMeetings(); fetchPayments(); fetchEscalations();
+async function login(){
+  const email=(document.getElementById("login-email")?.value||"").trim();
+  const pass=document.getElementById("login-pass")?.value||"";
+  if(!email||!pass){ showLogin("Please enter your email and password."); return; }
+
+  // Show loading state
+  const btn=document.getElementById("login-btn");
+  if(btn){ btn.textContent="Signing in…"; btn.disabled=true; }
+
+  try{
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error){ showLogin(error.message); return; }
+
+    // Map email to username
+    const username = EMAIL_TO_USER[email.toLowerCase()];
+    if(!username){ showLogin("Account not configured. Please contact your administrator."); return; }
+
+    currentUser = username;
+    sessionStorage.setItem("currentUser", username);
+    sessionStorage.setItem("supabaseSession", JSON.stringify(data.session));
+
+    document.getElementById("login-screen").innerHTML="";
+    const app=document.getElementById("main-app");
+    app.style.display="block";
+    app.style.opacity="0";
+    buildStaticShell();
+    const savedTab2=localStorage.getItem("m2_activeTab_"+username)||"tasks";
+    switchTab(savedTab2);
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ app.style.opacity="1"; }); });
+    fetchTasks(); fetchDeleteLog(); fetchMeetings(); fetchPayments(); fetchEscalations();
+  } catch(e){
+    showLogin("Sign in failed. Please try again.");
+  }
 }
 
-function logout(){
-  currentUser=null; sessionStorage.removeItem("currentUser");
+async function logout(){
+  await supabase.auth.signOut();
+  currentUser=null;
+  sessionStorage.removeItem("currentUser");
+  sessionStorage.removeItem("supabaseSession");
   tasks=[];deleteLog=[];meetings=[];actionItems=[];
   showLogin();
 }
@@ -2208,22 +2241,55 @@ function showRecurToast(name, date){
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-if(currentUser){
-  const app = document.getElementById("main-app");
-  app.style.display="block";
-  const _savedTab = localStorage.getItem("m2_activeTab_"+(sessionStorage.getItem("currentUser")||""))||"tasks";
-  // Validate: non-superAdmins can't access security tab
-  const savedTab = (_savedTab==="security" && !USERS[currentUser]?.superAdmin) ? "tasks" : _savedTab;
-  // Load permissions from DB first so access control is correct before rendering
-  loadPermissionsFromDB().finally(()=>{
-    buildStaticShell();
-    switchTab(savedTab);
-    requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{ app.style.opacity="1"; });
+async function initApp(){
+  // Initialise Supabase client
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // Check for existing Supabase session
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if(session){
+    // Valid session — map email to username
+    const email = session.user.email.toLowerCase();
+    const username = EMAIL_TO_USER[email];
+    if(username){
+      currentUser = username;
+      sessionStorage.setItem("currentUser", username);
+    } else {
+      // Email not in our system
+      await supabase.auth.signOut();
+      showLogin("Account not configured. Please contact your administrator.");
+      return;
+    }
+  } else if(currentUser) {
+    // Fallback: sessionStorage has user but no Supabase session
+    // Try to restore from stored session
+    const stored = sessionStorage.getItem("supabaseSession");
+    if(!stored){ currentUser=null; sessionStorage.removeItem("currentUser"); }
+  }
+
+  if(currentUser){
+    const app = document.getElementById("main-app");
+    app.style.display="block";
+    const _savedTab = localStorage.getItem("m2_activeTab_"+currentUser)||"tasks";
+    const savedTab = (_savedTab==="security" && !USERS[currentUser]?.superAdmin) ? "tasks" : _savedTab;
+    loadPermissionsFromDB().finally(()=>{
+      buildStaticShell();
+      switchTab(savedTab);
+      requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ app.style.opacity="1"; }); });
+      fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();fetchEscalations();
     });
-    fetchTasks();fetchDeleteLog();fetchMeetings();fetchPayments();fetchEscalations();
-  });
-}else{showLogin();}
+  } else {
+    showLogin();
+  }
+}
+
+// Wait for Supabase lib to be available then init
+function waitForSupabase(cb, tries=0){
+  if(window.supabase && window.supabase.createClient){ cb(); }
+  else if(tries<50){ setTimeout(()=>waitForSupabase(cb,tries+1), 100); }
+  else { document.getElementById("login-screen").innerHTML='<div style="padding:40px;text-align:center;color:#c53030;">Failed to load authentication library. Please refresh.</div>'; }
+}
+waitForSupabase(()=>initApp());
 setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fetchEscalations();}},30000);
 </script>
 
@@ -2270,69 +2336,3 @@ setInterval(()=>{if(currentUser){fetchTasks();fetchMeetings();fetchPayments();fe
         <label class="login-label">Currency</label>
         <select class="inp" id="pm-currency">
           <option value="SGD">SGD</option><option value="MYR">MYR</option>
-          <option value="USD">USD</option><option value="EUR">EUR</option>
-        </select>
-      </div>
-      <div>
-        <label class="login-label">Next Due Date</label>
-        <input class="inp" id="pm-due" type="date" />
-      </div>
-      <div>
-        <label class="login-label">Recurrence</label>
-        <select class="inp" id="pm-recurrence" onchange="document.getElementById('pm-custom-row').style.display=this.value==='Custom'?'flex':'none';">
-          <option>One-time</option><option>Daily</option><option>Weekly</option>
-          <option>Fortnightly</option><option>Monthly</option><option>Quarterly</option>
-          <option>Yearly</option><option>Custom</option>
-        </select>
-      </div>
-      <div id="pm-custom-row" style="display:none;grid-column:1/-1;align-items:center;gap:8px;">
-        <label class="login-label" style="margin:0;white-space:nowrap;">Every</label>
-        <input class="inp" id="pm-custom-interval" type="number" placeholder="e.g. 10" style="width:80px;" />
-        <span style="font-size:0.82rem;color:#718096;">days</span>
-      </div>
-      <div>
-        <label class="login-label">Remind me</label>
-        <select class="inp" id="pm-reminder">
-          <option value="1">1 day before</option>
-          <option value="3" selected>3 days before</option>
-          <option value="5">5 days before</option>
-          <option value="7">7 days before</option>
-          <option value="14">14 days before</option>
-        </select>
-      </div>
-      <div style="grid-column:1/-1;">
-        <label class="login-label">Notes (optional)</label>
-        <textarea class="inp" id="pm-notes" placeholder="Vendor details, reference number…" style="min-height:60px;resize:vertical;"></textarea>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
-      <button class="btn btn-danger" onclick="closePaymentModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="savePayment()">Save Payment</button>
-    </div>
-  </div>
-</div>
-
-<!-- Escalation Modal -->
-<div id="esc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-      <h2 style="font-size:1rem;font-weight:700;color:#c53030;">⚡ Escalate Task</h2>
-      <button onclick="closeEscModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#718096;">✕</button>
-    </div>
-    <div id="esc-task-info" style="background:#f7fafc;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:#4a5568;"></div>
-    <label class="login-label">Reassign to</label>
-    <select class="inp" id="esc-assignee" style="margin-bottom:12px;">
-      <option value="">Select team member…</option>
-      <option>Syaqil</option><option>Ulfah</option><option>Batrisyia</option>
-    </select>
-    <label class="login-label">Reason for escalation</label>
-    <textarea class="inp" id="esc-reason" placeholder="e.g. Blocked waiting for vendor response, reassigning to follow up…" style="min-height:80px;resize:vertical;margin-bottom:12px;"></textarea>
-
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-danger" onclick="closeEscModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmEscalation()" style="background:#c53030;">⚡ Escalate & Reassign</button>
-    </div>
-  </div>
-</div>
-</body>
-</html>
